@@ -1,0 +1,8 @@
+name = "peti-halloween-quiz"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+# MVP 本地与线上同用一类命名空间；线上部署时换成真实 namespace id
+[[kv_namespaces]]
+binding = "PETI_KV"
+id = "local-dev-placeholder"
