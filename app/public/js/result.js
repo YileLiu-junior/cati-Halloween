@@ -149,6 +149,7 @@ function applyRename() {
   const errEl = $("resultError");
   if (len >= 1 && len <= 12) {
     setState({ petName: name });
+    state.petName = name; // 同步模块级快照，render/drawCard 读新名
     errEl.classList.add("hidden");
     input.classList.add("hidden");
     $("petNameText").classList.remove("hidden");
