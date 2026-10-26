@@ -1,0 +1,4 @@
+interface:
+  display_name: "图生图 Prompt 改造"
+  short_description: "通过三至五轮追问，保留主体特征并细化风格、表情、光影与透明背景要求"
+  default_prompt: "使用 $image-to-image-prompt，根据我上传的图片进行 3–5 轮追问，再输出透明背景角色图的完整图生图提示词。"
