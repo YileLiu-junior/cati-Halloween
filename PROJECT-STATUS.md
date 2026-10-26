@@ -23,6 +23,7 @@
 | `doc/quiz-design.md` `doc/quiz-design-dog.md` `doc/interaction-design.md` `doc/technical-notes.md` | 上游定稿 2026-10-26，勿改动；题库内容改动走 PRD §6.2 规则 |
 | `doc/review-convention.md` v1.0 | PRD 评审流程约定，评审 agent 只读不写 |
 | `doc/posthog-proxy-setup.md` v1.0 | PostHog 反代部署指南；PostHog 已注册（US 区）、key 已取 |
+| `doc/reviews/PRD-quiz-ui-ux-analysis-20261027.md` | 交互清单（15 条）＋素材对账（4 项，硬图仅头图与 16 立绘）＋14 项开放问题；Q2（petName 时序）、F1（card-free.png 是整卡非立绘）待作者裁决 |
 
 ## 3. 美术资产进度（16 角色，猫版）
 
@@ -44,6 +45,8 @@
 3. 12+16 张立绘生产中，生图依赖各平台免费额度（见调研文档）。
 4. KV 免费额度核算（PRD §7.6）上线前完成。
 5. 头图更换后同步改 PRD 素材表与 §9.1。
+6. ui-ux 清单开放问题待作者裁决（见 §2 该行）：Q2 petName 时序（动 PRD 需重开评审）、F1 免费卡 demo 期口径、Q7 狗版立绘、Q12 AI 生成标识补入验收。
+7. 木乃伊咪成品从 ref-pic 归位 free-pic（资产线执行）。
 
 ## 5. 协作边界约定
 
