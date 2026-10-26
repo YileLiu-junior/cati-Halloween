@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>喵灵万圣节 · 你家毛孩子是哪只小怪物？</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <img class="hero" src="/assets/hero.png" alt="喵灵万圣节" />
+      <p class="tagline">10 题，看看你家毛孩子是哪只万圣节小怪物</p>
+
+      <div class="type-toggle" role="radiogroup" aria-label="宠物类型">
+        <button type="button" class="type-btn" data-type="cat" aria-checked="true">🐱 猫咪</button>
+        <button type="button" class="type-btn" data-type="dog" aria-checked="false">🐶 狗狗</button>
+      </div>
+
+      <label class="field" for="petName">
+        <span>请输入你好奇的宠物的名字</span>
+        <input id="petName" maxlength="24" autocomplete="off" placeholder="我家猫" />
+      </label>
+      <div id="nameError" class="error hidden" role="alert"></div>
+
+      <button id="startBtn" class="primary">开始测试</button>
+
+      <div class="row">
+        <button id="continueBtn" class="secondary">继续上次</button>
+        <button id="recoverToggle" class="secondary">找回结果</button>
+      </div>
+
+      <form id="recoverForm" class="hidden">
+        <input id="recoverTestId" placeholder="测试编号（testId）" autocomplete="off" />
+        <input id="recoverToken" placeholder="私密口令" autocomplete="off" />
+        <div id="recoverError" class="error hidden" role="alert"></div>
+        <button type="submit" class="secondary">找回</button>
+      </form>
+
+      <div id="globalError" class="error hidden" role="alert"></div>
+    </main>
+    <script src="/js/config.js"></script>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

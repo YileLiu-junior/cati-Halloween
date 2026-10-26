@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>结果 · 喵灵万圣节</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <div id="resultLoading" class="loading">正在加载…</div>
+
+      <div id="resultMain" class="hidden">
+        <div class="illus-wrap">
+          <img id="illus" alt="角色立绘" />
+          <br />
+          <span class="illus-tag">角色示意</span>
+        </div>
+        <h2 id="roleName" style="text-align: center"></h2>
+        <p id="tagline" style="text-align: center; color: rgba(245, 237, 228, 0.65); font-size: 14px"></p>
+
+        <canvas id="radar" width="340" height="310"></canvas>
+
+        <ul id="shortLines"></ul>
+        <p class="quote" id="quote"></p>
+
+        <div class="petname-row">
+          <span id="petNameText"></span>
+          <input id="petNameInput" class="hidden" maxlength="24" autocomplete="off" />
+          <button id="renameBtn" class="link">改名字</button>
+        </div>
+        <div id="resultError" class="error hidden" role="alert"></div>
+
+        <p class="rarity" id="rarity"></p>
+        <p class="pubid">公开编号 <span id="publicId"></span>（仅展示用，不能找回订单）</p>
+
+        <div class="row">
+          <button id="saveCardBtn" class="primary">保存免费卡</button>
+        </div>
+        <div class="row">
+          <button id="customBtn" class="secondary">定制我家毛孩子</button>
+          <button id="againBtn" class="secondary">再测一只</button>
+        </div>
+        <canvas id="cardCanvas" width="750" height="1000"></canvas>
+      </div>
+    </main>
+    <script src="/js/config.js"></script>
+    <script type="module" src="/js/result.js"></script>
+  </body>
+</html>
