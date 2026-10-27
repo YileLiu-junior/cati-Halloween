@@ -1,0 +1,33 @@
+{
+  "title": "女仆咪",
+  "subtitle": "万圣节巡游 · 喵灵",
+  "technique": "骷髅灯夜巡",
+  "tagline": "提着骷髅灯笼，穿过糖果与南瓜的万圣夜。",
+  "edition": "001 / 001",
+  "collection": "喵灵万圣典藏",
+  "description": "Pets-Halloween 免费奖励卡的全息互动版：女仆咪浮于镭射南瓜夜色之上。",
+  "assets": {
+    "model": "./assets/card.glb",
+    "subject": "./assets/subject.png",
+    "background": "./assets/background.png",
+    "text": "./assets/text.png",
+    "lineart": "./assets/lineart.png"
+  },
+  "parameters": {
+    "subjectScale": 0.95,
+    "subjectDepth": 0.19,
+    "backgroundDepth": 0.26,
+    "effectsDepth": 0.72,
+    "foil": 1.0
+  },
+  "appearance": {
+    "finish": "silver"
+  },
+  "safeArea": {
+    "scale": 1.12,
+    "offset": [
+      -0.06,
+      -0.085
+    ]
+  }
+}

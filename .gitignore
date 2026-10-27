@@ -1,0 +1,13 @@
+# 依赖目录：可用 npm install 恢复，不入 git
+node_modules/
+
+# Blender 本地运行时（约 1.3GB，可按 blender-4.5.15.sha256 重新下载校验）
+holo-card/tools/blender-4.5.15-windows-x64/
+holo-card/tools/blender-4.5.15-windows-x64.zip
+
+# 大模型/工具产生的临时文件
+holo-card/tools/server.log
+holo-card/tools/swap-server.log
+holo-card/tools/verify-report-run.log
+holo-card/tools/verify-kit-run.log
+holo-card/h5-kit/server.log

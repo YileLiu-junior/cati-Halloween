@@ -1,8 +1,14 @@
-// 答题页 ×10：洗牌顺序来自 L、未选禁用下一题、末题「揭晓身份」、服务端计分
-import { getState, setState, fetchQuiz, petNameCodePoints } from "./store.js";
+// 选项顺序和进度保存在当前浏览器，角色仍由服务端计算。
+import { getState, setState, saveResult, fetchQuiz, petNameCodePoints } from "./store.js";
 import { track } from "./track.js";
 
 const state = getState();
+const $ = (id) => document.getElementById(id);
+const prevBtn = $("prevBtn");
+const retryBtn = $("retryBtn");
+const quizError = $("quizError");
+const quizStatus = $("quizStatus");
+
 if (!state.testId || !state.order) {
   location.href = "/index.html";
 } else {
@@ -10,36 +16,73 @@ if (!state.testId || !state.order) {
 }
 
 async function main() {
-  const $ = (id) => document.getElementById(id);
-  const quiz = await fetchQuiz(state.petType);
-  const questions = quiz.questions;
-  let qi = Math.min(state.currentQ || 0, questions.length - 1);
-  const answers = { ...(state.answers || {}) };
+  prevBtn.onclick = () => { location.href = "/index.html"; };
+  quizError.classList.add("hidden");
+  retryBtn.classList.add("hidden");
+  quizStatus.textContent = "正在加载题目…";
+  quizStatus.classList.remove("hidden");
+  let quiz;
+  try {
+    quiz = await fetchQuiz(state.petType);
+  } catch {
+    quizStatus.classList.add("hidden");
+    quizError.textContent = "题目加载失败，答题进度已保留";
+    quizError.classList.remove("hidden");
+    retryBtn.textContent = "重新加载题目";
+    retryBtn.classList.remove("hidden");
+    retryBtn.onclick = main;
+    return;
+  }
+  quizStatus.classList.add("hidden");
 
+  const questions = quiz.questions;
+  let qi = Math.max(0, Math.min(state.currentQ || 0, questions.length - 1));
+  const answers = { ...(state.answers || {}) };
+  let busy = false;
+  let expired = false;
   const progressEl = $("progress");
-  const sceneEl = $("scene");
   const qtextEl = $("qtext");
   const optionsEl = $("options");
-  const prevBtn = $("prevBtn");
-  const nextBtn = $("nextBtn");
-  const quizError = $("quizError");
 
-  function showError(msg) {
+  function showError(msg, canRetry = false) {
     quizError.textContent = msg;
     quizError.classList.remove("hidden");
+    retryBtn.textContent = "重新揭晓身份";
+    retryBtn.classList.toggle("hidden", !canRetry);
   }
 
   function save() {
+    if (!isCurrentSession()) return false;
     setState({ answers, currentQ: qi });
+    return true;
   }
 
-  function render() {
+  function setBusy(on) {
+    busy = on;
+    prevBtn.disabled = on;
+    optionsEl.querySelectorAll("button").forEach((btn) => { btn.disabled = on || expired; });
+    optionsEl.setAttribute("aria-busy", String(on));
+  }
+
+  function isCurrentSession() {
+    if (getState().testId === state.testId) return true;
+    expired = true;
+    setBusy(false);
+    prevBtn.setAttribute("aria-label", "返回首页");
+    showError("另一场测试已在本浏览器开始，请返回首页继续");
+    return false;
+  }
+
+  function render(focus = false) {
+    if (!isCurrentSession()) return;
     const q = questions[qi];
     progressEl.textContent = `第 ${qi + 1} / ${questions.length} 题`;
-    sceneEl.textContent = `【${q.scene}】`;
+    $("progressFill").style.transform = `scaleX(${(qi + 1) / questions.length})`;
+    $("scene").textContent = q.scene;
     qtextEl.textContent = q.text;
-    optionsEl.innerHTML = "";
-    // 顺序取 L 中洗牌结果；optionId 记录不按位置（PRD §3.2/§3.4）
+    optionsEl.replaceChildren();
+    quizError.classList.add("hidden");
+    retryBtn.classList.add("hidden");
     for (const oid of state.order[q.id]) {
       const opt = q.options.find((o) => o.id === oid);
       const btn = document.createElement("button");
@@ -47,78 +90,96 @@ async function main() {
       btn.className = "option" + (answers[q.id] === oid ? " selected" : "");
       btn.dataset.oid = oid;
       btn.textContent = opt.text;
-      btn.addEventListener("click", () => {
+      btn.setAttribute("aria-pressed", String(answers[q.id] === oid));
+      btn.addEventListener("click", async (event) => {
+        if (busy || expired || event.detail > 1) return;
+        if (!isCurrentSession()) return;
         answers[q.id] = oid;
-        save();
+        if (!save()) return;
+        optionsEl.querySelectorAll("button").forEach((option) => {
+          const selected = option === btn;
+          option.classList.toggle("selected", selected);
+          option.setAttribute("aria-pressed", String(selected));
+        });
+        setBusy(true);
         track("quiz_answer", { questionId: q.id, optionId: oid });
-        render();
+        await new Promise((resolve) => setTimeout(resolve, 220));
+        if (!isCurrentSession()) return;
+        if (qi < questions.length - 1) {
+          qi += 1;
+          setBusy(false);
+          render(true);
+        } else {
+          await submit();
+        }
       });
       optionsEl.appendChild(btn);
     }
-    prevBtn.classList.toggle("hidden", qi === 0); // 首题隐藏上一题（ui-ux Q6 默认走法）
-    const isLast = qi === questions.length - 1;
-    nextBtn.textContent = isLast ? "揭晓身份" : "下一题";
-    nextBtn.disabled = !answers[q.id];
+    prevBtn.setAttribute("aria-label", qi === 0 ? "返回首页" : "返回上一题");
     save();
+    if (focus) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      qtextEl.focus({ preventScroll: true });
+    }
   }
 
-  prevBtn.addEventListener("click", () => {
-    if (qi > 0) {
-      qi -= 1;
-      render();
-    }
-  });
-
-  nextBtn.addEventListener("click", async () => {
-    const q = questions[qi];
-    if (!answers[q.id]) return;
-    if (qi < questions.length - 1) {
-      qi += 1;
-      render();
+  prevBtn.onclick = () => {
+    if (busy) return;
+    if (qi === 0 || expired || getState().testId !== state.testId) {
+      location.href = "/index.html";
       return;
     }
-    // 末题提交：loading 禁用，服务端幂等兜住双击（PRD §7.2）
-    nextBtn.disabled = true;
-    nextBtn.textContent = "正在揭晓…";
+    qi -= 1;
+    render(true);
+  };
+
+  async function submit() {
+    if (!isCurrentSession()) return;
+    setBusy(true);
+    retryBtn.classList.add("hidden");
     quizError.classList.add("hidden");
+    quizStatus.textContent = "正在揭晓万圣节身份…";
+    quizStatus.classList.remove("hidden");
     try {
-      const optionIds = questions.map((x) => answers[x.id]);
-      if (optionIds.some((x) => !x)) {
-        showError("还有题目未作答");
-        nextBtn.disabled = false;
-        nextBtn.textContent = "揭晓身份";
+      const optionIds = questions.map((q) => answers[q.id]);
+      const unanswered = optionIds.findIndex((id) => !id);
+      if (unanswered !== -1) {
+        qi = unanswered;
+        render(true);
+        showError("这一题还没有作答，请选择一个答案");
         return;
       }
-      if (petNameCodePoints(state.petName || "") < 1) {
-        showError("宠物名缺失，请回首页重新开始");
-        nextBtn.textContent = "揭晓身份";
+      const nameLength = petNameCodePoints(state.petName || "");
+      if (nameLength < 1 || nameLength > 12) {
+        expired = true;
+        showError("宠物姓名无效，请点击左上角返回首页重新开始");
         return;
       }
       const res = await fetch("/api/results", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          token: state.token,
-          testId: state.testId,
-          optionIds,
-          petName: state.petName,
-        }),
+        body: JSON.stringify({ token: state.token, testId: state.testId, optionIds, petName: state.petName }),
       });
       const data = await res.json();
       if (!res.ok) {
-        showError(data.code === "TOKEN_INVALID" ? "会话已失效，请回首页重新开始" : "加载失败，请重试");
-        nextBtn.textContent = "揭晓身份";
+        if (!isCurrentSession()) return;
+        expired = data.code === "TOKEN_INVALID";
+        showError(expired ? "会话已失效，请点击左上角返回首页重新开始" : "揭晓失败，答案已保留，请重试", !expired);
         return;
       }
-      setState({ result: data, currentQ: questions.length });
+      saveResult({ ...state, result: data });
+      if (getState().testId === state.testId) setState({ result: data, currentQ: questions.length });
       track("quiz_complete", { roleId: data.roleId });
-      location.href = "/result.html";
+      location.href = `/result.html?testId=${encodeURIComponent(state.testId)}`;
     } catch {
-      showError("加载失败，请重试");
-      nextBtn.disabled = false;
-      nextBtn.textContent = "揭晓身份";
+      if (!isCurrentSession()) return;
+      showError("揭晓失败，答案已保留，请重试", true);
+    } finally {
+      quizStatus.classList.add("hidden");
+      setBusy(false);
     }
-  });
+  }
 
+  retryBtn.onclick = () => { if (!busy) submit(); };
   render();
 }

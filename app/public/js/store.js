@@ -12,6 +12,15 @@ export function getState() {
 
 export function setState(patch) {
   const next = { ...getState(), ...patch };
+  if (patch.result && next.testId) {
+    const history = getHistory().reverse();
+    const index = history.findIndex((entry) => entry.testId === next.testId);
+    const saved = resultEntry(next, history[index]);
+    saved.completedAt ||= new Date().toISOString();
+    if (index === -1) history.push(saved);
+    else history[index] = saved;
+    next.history = history;
+  }
   localStorage.setItem(KEY, JSON.stringify(next));
   return next;
 }
@@ -22,6 +31,55 @@ export function initState() {
   if (!s.anonId) patch.anonId = crypto.randomUUID();
   localStorage.setItem(KEY, JSON.stringify({ ...s, ...patch }));
   return getState();
+}
+
+// 历史只保存结果和自动找回凭证，查看旧结果不改当前答题会话。
+function resultEntry(entry, previous = {}) {
+  return {
+    testId: entry.testId,
+    token: entry.token || previous.token,
+    petName: entry.petName || entry.result.petName,
+    petType: entry.petType || entry.result.petType,
+    quizVersion: entry.quizVersion || entry.result.quizVersion,
+    result: entry.result,
+    completedAt: entry.completedAt || previous.completedAt || null,
+  };
+}
+
+export function getHistory() {
+  const state = getState();
+  const entries = new Map();
+  for (const entry of [...(Array.isArray(state.history) ? state.history : []), state]) {
+    if (!entry?.testId || !entry.result) continue;
+    entries.set(entry.testId, resultEntry(entry, entries.get(entry.testId)));
+  }
+  return [...entries.values()].reverse();
+}
+
+export function getResult(testId) {
+  return getHistory().find((entry) => entry.testId === testId);
+}
+
+export function saveResult(entry) {
+  if (!entry?.testId || !entry.result) return null;
+  const history = getHistory().reverse();
+  const index = history.findIndex((item) => item.testId === entry.testId);
+  const saved = resultEntry(entry, history[index]);
+  saved.completedAt ||= new Date().toISOString();
+  if (index === -1) history.push(saved);
+  else history[index] = saved;
+  setState({ history });
+  return saved;
+}
+
+export function renameResult(testId, name) {
+  const len = petNameCodePoints(name);
+  if (len < 1 || len > 12) throw new Error("名字限 1–12 字");
+  const entry = getResult(testId);
+  if (!entry) return null;
+  const updated = { ...entry, petName: name, result: { ...entry.result, petName: name } };
+  if (getState().testId === testId) setState({ petName: name, result: updated.result });
+  return saveResult(updated);
 }
 
 // 恢复链接/渠道参数：先消费再剥离（posthog-proxy-setup §3，口令片段不进埋点）

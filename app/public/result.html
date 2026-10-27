@@ -3,48 +3,59 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#21191d" />
     <title>结果 · 喵灵万圣节</title>
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <main class="page">
-      <div id="resultLoading" class="loading">正在加载…</div>
-
+    <main class="page result-page">
+      <a class="result-home" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>首页与历史</a>
+      <div id="resultLoading" class="loading" role="status">正在加载角色卡…</div>
+      <div id="resultEmpty" class="empty-result hidden">
+        <p>当前浏览器还没有这份结果。</p>
+        <a href="/">回首页查看历史或开始测评</a>
+      </div>
       <div id="resultMain" class="hidden">
-        <div class="illus-wrap">
-          <img id="illus" alt="角色立绘" />
-          <br />
-          <span class="illus-tag">角色示意</span>
-        </div>
-        <h2 id="roleName" style="text-align: center"></h2>
-        <p id="tagline" style="text-align: center; color: rgba(245, 237, 228, 0.65); font-size: 14px"></p>
-
-        <canvas id="radar" width="340" height="310"></canvas>
-
-        <ul id="shortLines"></ul>
+        <header class="result-header">
+          <p class="rarity"><span id="rarity"></span><span class="rarity-info" tabindex="0" title="占比来自题库模拟分布，非实时全站统计" aria-label="占比来自题库模拟分布，非实时全站统计">i</span></p>
+          <h1 id="roleName"></h1>
+        </header>
+        <figure class="free-card">
+          <canvas id="cardCanvas" width="750" height="1000" role="img" aria-label="免费万圣节角色卡"></canvas>
+          <figcaption class="card-caption" id="cardCaption">免费角色卡 · AI 生成角色示意</figcaption>
+        </figure>
         <p class="quote" id="quote"></p>
-
-        <div class="petname-row">
+        <div id="petNameDisplay" class="petname-row">
           <span id="petNameText"></span>
-          <input id="petNameInput" class="hidden" maxlength="24" autocomplete="off" />
-          <button id="renameBtn" class="link">改名字</button>
+          <button id="renameBtn" class="icon-button" aria-label="修改宠物姓名" title="修改宠物姓名"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1 12-12a2.8 2.8 0 0 0-4-4L4 15v5Z" /></svg></button>
         </div>
+        <form id="renameForm" class="rename-form hidden" aria-label="修改宠物姓名">
+          <input id="petNameInput" aria-label="新的宠物姓名" aria-describedby="resultError" maxlength="24" autocomplete="off" />
+          <button id="saveNameBtn" type="submit" class="secondary">保存</button>
+          <button id="cancelNameBtn" type="button" class="text-button">取消</button>
+        </form>
+        <p id="nameStatus" class="name-status" role="status" aria-live="polite"></p>
         <div id="resultError" class="error hidden" role="alert"></div>
-
-        <p class="rarity" id="rarity"></p>
-        <p class="pubid">公开编号 <span id="publicId"></span>（仅展示用，不能找回订单）</p>
-
-        <div class="row">
-          <button id="saveCardBtn" class="primary">保存免费卡</button>
+        <section class="traits-layout" aria-label="性格解读">
+          <canvas id="radar" width="340" height="310" role="img" aria-label="六维性格图"></canvas>
+          <div class="traits-copy">
+            <h2 id="tagline"></h2>
+            <ul id="shortLines"></ul>
+          </div>
+        </section>
+        <div class="result-actions">
+          <button id="customBtn" class="primary">定制我家毛孩子 <span aria-hidden="true">↗</span></button>
+          <div class="row">
+            <button id="saveCardBtn" class="secondary">保存免费卡</button>
+            <button id="againBtn" class="secondary">再测一只</button>
+          </div>
         </div>
-        <div class="row">
-          <button id="customBtn" class="secondary">定制我家毛孩子</button>
-          <button id="againBtn" class="secondary">再测一只</button>
-        </div>
-        <canvas id="cardCanvas" width="750" height="1000"></canvas>
+        <p id="customStatus" class="custom-status hidden" role="status"></p>
+        <p class="result-footer">喵灵万圣节 · 每只毛孩子都有另一面</p>
       </div>
     </main>
     <script src="/js/config.js"></script>
+    <script type="module" src="/js/audio.js"></script>
     <script type="module" src="/js/result.js"></script>
   </body>
 </html>

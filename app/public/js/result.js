@@ -1,272 +1,216 @@
-// 结果页：立绘占位 + 雷达图 + 改名重绘 + 免费卡 canvas 导出
-import { getState, setState, fetchQuiz, petNameCodePoints } from "./store.js";
+import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints } from "./store.js";
 import { track } from "./track.js";
 
-const state = getState();
 const $ = (id) => document.getElementById(id);
-
-// 立绘占位映射：已有成品角色用真图，其余统一女仆咪透明立绘（用户裁决 demo 口径）
+const active = getState();
+const requestedId = new URLSearchParams(location.search).get("testId");
+let entry = getResult(requestedId || active.testId);
+let image;
+let cardReady = false;
 const ILLUS = {
   nurse: "/assets/illus-nurse.png",
   werewolf: "/assets/illus-werewolf.png",
   zombie: "/assets/illus-zombie.png",
   mummy: "/assets/illus-mummy.png",
 };
-const ILLUS_PLACEHOLDER = "/assets/illus-nurse.png";
-const AXIS_ORDER = [
-  ["E", "电量"],
-  ["A", "贴贴"],
-  ["B", "胆量"],
-  ["D", "戏精"],
-  ["F", "干饭"],
-  ["C", "好奇"],
-];
+const AXES = [["E", "电量"], ["A", "贴贴"], ["B", "胆量"], ["D", "戏精"], ["F", "干饭"], ["C", "好奇"]];
+const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
 
 async function boot() {
-  let result = state.result;
-  // 空态：有凭证自动找回一次，失败回「找回结果」（PRD §4 空态去向）
-  if (!result && state.testId && state.token) {
+  if (!entry && (!requestedId || requestedId === active.testId) && active.testId && active.token) {
     try {
       const res = await fetch("/api/recover", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token: state.token, testId: state.testId }),
+        body: JSON.stringify({ token: active.token, testId: active.testId }),
       });
       if (res.ok) {
-        result = await res.json();
-        setState({ result });
+        const result = await res.json();
+        if (getState().testId === active.testId) setState({ result });
+        else saveResult({ ...active, result });
+        entry = getResult(active.testId);
       }
-    } catch {
-      /* 落到空态提示 */
-    }
+    } catch { /* 无结果时仍提供首页入口。 */ }
   }
-  if (!result) {
-    $("resultLoading").textContent = "结果丢失，请回首页「找回结果」";
+  if (!entry) {
+    $("resultLoading").classList.add("hidden");
+    $("resultEmpty").classList.remove("hidden");
     return;
+  }
+  saveResult(entry);
+  const result = entry.result;
+  $("rarity").textContent = `全站仅 ${result.rarityPct}% 的`;
+  $("roleName").textContent = result.roleName;
+  $("quote").textContent = `「${result.quote}」`;
+  $("tagline").textContent = result.tagline || "它的另一面";
+  for (const line of result.shortLines) {
+    const li = document.createElement("li");
+    li.textContent = line;
+    $("shortLines").appendChild(li);
+  }
+  $("petNameText").textContent = entry.petName;
+  drawRadar(result.axes);
+  $("saveCardBtn").disabled = true;
+  image = new Image();
+  image.src = ILLUS[result.roleId] || ILLUS.nurse;
+  try {
+    await image.decode();
+    drawCard();
+    cardReady = true;
+    $("saveCardBtn").disabled = false;
+  } catch {
+    $("cardCaption").textContent = "角色图片加载失败，刷新页面重试";
+    $("cardCaption").setAttribute("role", "alert");
+    drawCard();
   }
   $("resultLoading").classList.add("hidden");
   $("resultMain").classList.remove("hidden");
   track("result_view", { roleId: result.roleId });
-  render(result);
 }
 
-function render(result) {
-  $("illus").src = ILLUS[result.roleId] || ILLUS_PLACEHOLDER;
-  $("illus").alt = result.roleName;
-  $("roleName").textContent = result.roleName;
-  $("tagline").textContent = result.tagline || "";
-  const ul = $("shortLines");
-  ul.innerHTML = "";
-  for (const line of result.shortLines) {
-    const li = document.createElement("li");
-    li.textContent = line;
-    ul.appendChild(li);
-  }
-  $("quote").textContent = result.quote;
-  $("petNameText").textContent = state.petName || result.petName;
-  $("rarity").textContent = `全站仅 ${result.rarityPct}% 的毛孩子是这个角色`;
-  $("publicId").textContent = result.publicId;
-  drawRadar(result.axes);
-}
-
-// 六边形雷达图：纯 canvas（素材最小化阶梯第 2 级）
 function drawRadar(axes) {
   const canvas = $("radar");
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-  const cx = W / 2;
-  const cy = H / 2 + 8;
-  const R = Math.min(W, H) / 2 - 40;
-  const n = AXIS_ORDER.length;
-  const angle = (i) => (Math.PI * 2 * i) / n - Math.PI / 2;
-  ctx.clearRect(0, 0, W, H);
-
-  // 网格环 2.5/5/7.5/10
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1;
+  const cx = 170, cy = 160, radius = 110;
+  const point = (i, r) => [cx + r * Math.cos(i * Math.PI / 3 - Math.PI / 2), cy + r * Math.sin(i * Math.PI / 3 - Math.PI / 2)];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "oklch(0.76 0.07 65 / 0.25)";
+  ctx.lineWidth = 1.5;
   for (const ring of [0.25, 0.5, 0.75, 1]) {
     ctx.beginPath();
-    for (let i = 0; i <= n; i++) {
-      const a = angle(i % n);
-      const x = cx + R * ring * Math.cos(a);
-      const y = cy + R * ring * Math.sin(a);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    for (let i = 0; i <= 6; i++) {
+      const [x, y] = point(i % 6, radius * ring);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     }
     ctx.stroke();
   }
-  // 轴线与标签
-  ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
-  for (let i = 0; i < n; i++) {
-    const a = angle(i);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
-    ctx.stroke();
-    const lx = cx + (R + 22) * Math.cos(a);
-    const ly = cy + (R + 22) * Math.sin(a);
-    ctx.fillStyle = "#FC9B26";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(AXIS_ORDER[i][1], lx, ly);
-  }
-  // 数据多边形：主紫填充 + 暖金描边
+  ctx.font = `23px ${FONT}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  AXES.forEach(([key, label], i) => {
+    const [x, y] = point(i, radius);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+    const [lx, ly] = point(i, radius + 26);
+    ctx.fillStyle = "oklch(0.79 0.16 65)";
+    ctx.fillText(label, lx, ly);
+  });
   ctx.beginPath();
-  for (let i = 0; i <= n; i++) {
-    const [key] = AXIS_ORDER[i % n];
-    const v = Math.max(0, Math.min(10, axes[key] ?? 5)) / 10;
-    const a = angle(i % n);
-    const x = cx + R * v * Math.cos(a);
-    const y = cy + R * v * Math.sin(a);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
+  AXES.forEach(([key], i) => {
+    const [x, y] = point(i, radius * Math.max(0, Math.min(10, axes[key] ?? 5)) / 10);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
   ctx.closePath();
-  ctx.fillStyle = "rgba(145, 19, 184, 0.4)";
-  ctx.fill();
-  ctx.strokeStyle = "#FC9B26";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  ctx.fillStyle = "oklch(0.49 0.23 316 / 0.45)"; ctx.fill();
+  ctx.strokeStyle = "oklch(0.79 0.16 65)"; ctx.lineWidth = 3; ctx.stroke();
+  canvas.setAttribute("aria-label", AXES.map(([key, label]) => `${label} ${axes[key] ?? 5}/10`).join("，"));
 }
 
-// 改名只触发重绘（PRD §5.2）；服务端仍存提交时名，MVP 不回传
-$("renameBtn").addEventListener("click", () => {
-  const input = $("petNameInput");
-  const text = $("petNameText");
-  text.classList.add("hidden");
-  $("renameBtn").classList.add("hidden");
-  input.value = state.petName || "";
-  input.classList.remove("hidden");
-  input.focus();
-});
-$("petNameInput").addEventListener("change", applyRename);
-$("petNameInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") applyRename();
-});
-function applyRename() {
-  const input = $("petNameInput");
-  const name = input.value.trim();
-  const len = petNameCodePoints(name);
-  const errEl = $("resultError");
-  if (len >= 1 && len <= 12) {
-    setState({ petName: name });
-    state.petName = name; // 同步模块级快照，render/drawCard 读新名
-    errEl.classList.add("hidden");
-    input.classList.add("hidden");
-    $("petNameText").classList.remove("hidden");
-    $("renameBtn").classList.remove("hidden");
-    render(getState().result);
-    drawCard(getState().result); // 改名只重绘（含卡面）
-  } else {
-    errEl.textContent = "名字限 1–12 字";
-    errEl.classList.remove("hidden");
-  }
-}
-
-// 免费简版卡：canvas 合成 750×1000 PNG（PRD §5.5，用户裁决：透明立绘+重建卡面）
-async function drawCard(result) {
+// 同一画布用于预览和下载，姓名修改后两处保持一致。
+function drawCard() {
   const canvas = $("cardCanvas");
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-
-  // 背景：暖炭黑→近黑渐变 + 噪点（代码画）
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, "#2B2020");
-  grad.addColorStop(1, "#010000");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  for (let i = 0; i < 400; i++) {
-    ctx.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
+  const { result, petName } = entry;
+  const bg = ctx.createLinearGradient(0, 0, 750, 1000);
+  bg.addColorStop(0, "oklch(0.30 0.075 319)");
+  bg.addColorStop(1, "oklch(0.17 0.018 15)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 750, 1000);
+  ctx.strokeStyle = "oklch(0.79 0.16 65 / 0.6)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(24, 24, 702, 952, 28); ctx.stroke();
+  ctx.fillStyle = "oklch(0.79 0.16 65)";
+  ctx.font = `24px ${FONT}`; ctx.textAlign = "center";
+  ctx.fillText("喵 灵 万 圣 节", 375, 82);
+  ctx.fillStyle = "oklch(0.94 0.016 75)";
+  ctx.font = `bold 36px ${FONT}`;
+  ctx.fillText(result.roleName, 375, 142, 650);
+  const glow = ctx.createRadialGradient(375, 470, 40, 375, 470, 330);
+  glow.addColorStop(0, "oklch(0.58 0.13 65 / 0.24)");
+  glow.addColorStop(1, "oklch(0.30 0.075 319 / 0)");
+  ctx.fillStyle = glow; ctx.fillRect(40, 160, 670, 620);
+  if (image?.naturalWidth) {
+    const scale = Math.min(650 / image.naturalWidth, 600 / image.naturalHeight);
+    const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
+    ctx.drawImage(image, (750 - w) / 2, 180 + (600 - h) / 2, w, h);
   }
-  // 装饰：主紫晕 + 暖金描边框
-  const glow = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 340);
-  glow.addColorStop(0, "rgba(145,19,184,0.35)");
-  glow.addColorStop(1, "rgba(145,19,184,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = "rgba(252,155,38,0.7)";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(18, 18, W - 36, H - 36);
-
-  const petName = state.petName || result.petName;
-  ctx.textAlign = "center";
-  // 立绘（透明 PNG）
-  await new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const h = 460;
-      const w = (img.width / img.height) * h;
-      ctx.drawImage(img, (W - w) / 2, H * 0.30 - h / 2, w, h);
-      resolve();
-    };
-    img.onerror = resolve;
-    img.src = ILLUS[result.roleId] || ILLUS_PLACEHOLDER;
-  });
-  // 「角色示意」标注（前端叠字，PRD 验收 §10.7）
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = '20px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText("（角色示意）", W / 2, H * 0.30 + 250);
-
-  ctx.fillStyle = "#FC9B26";
-  ctx.font = 'bold 44px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(result.roleName, W / 2, 110);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = 'bold 40px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(petName, W / 2, H * 0.72);
-  ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText(result.quote, W / 2, H * 0.72 + 46);
-  ctx.fillText(`公开编号：${result.publicId}`, W / 2, H * 0.72 + 88);
-  ctx.fillStyle = "rgba(252,155,38,0.9)";
-  ctx.font = 'bold 28px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText("小红书搜：喵灵万圣节", W / 2, H * 0.72 + 150);
-  ctx.fillStyle = "rgba(255,255,255,0.4)";
-  ctx.font = '16px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText("本卡形象为 AI 生成示意", W / 2, H - 34);
-  return canvas;
+  ctx.fillStyle = "oklch(0.94 0.016 75)";
+  ctx.font = `bold 40px ${FONT}`; ctx.fillText(petName, 375, 836, 630);
+  ctx.fillStyle = "oklch(0.79 0.16 65)";
+  ctx.font = `24px ${FONT}`; ctx.fillText(result.quote, 375, 886, 640);
+  ctx.fillStyle = "oklch(0.72 0.022 65)";
+  ctx.font = `19px ${FONT}`; ctx.fillText("小红书搜：喵灵万圣节", 375, 934);
+  ctx.font = `16px ${FONT}`; ctx.fillText("免费角色卡 · AI 生成角色示意", 375, 961);
+  canvas.setAttribute("aria-label", `${petName}的免费角色卡：${result.roleName}。${result.quote}。AI 生成角色示意。`);
 }
 
+function closeRename() {
+  $("renameForm").classList.add("hidden");
+  $("petNameDisplay").classList.remove("hidden");
+  $("renameBtn").focus({ preventScroll: true });
+}
+$("renameBtn").addEventListener("click", () => {
+  $("nameStatus").textContent = "";
+  $("resultError").classList.add("hidden");
+  $("petNameDisplay").classList.add("hidden");
+  $("renameForm").classList.remove("hidden");
+  $("petNameInput").value = entry.petName;
+  $("petNameInput").focus({ preventScroll: true });
+  $("petNameInput").select();
+});
+$("cancelNameBtn").addEventListener("click", () => {
+  $("resultError").classList.add("hidden");
+  closeRename();
+});
+$("petNameInput").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { event.preventDefault(); $("cancelNameBtn").click(); }
+});
+$("renameForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = $("petNameInput").value.trim();
+  if (petNameCodePoints(name) < 1 || petNameCodePoints(name) > 12) {
+    $("resultError").textContent = "名字限 1–12 字";
+    $("resultError").classList.remove("hidden");
+    return;
+  }
+  try {
+    const updated = renameResult(entry.testId, name);
+    if (!updated) throw new Error("missing result");
+    entry = updated;
+    $("petNameText").textContent = name;
+    drawCard();
+    $("resultError").classList.add("hidden");
+    closeRename();
+    $("nameStatus").textContent = "名字已保存";
+  } catch {
+    $("resultError").textContent = "名字未能保存，请重试";
+    $("resultError").classList.remove("hidden");
+  }
+});
 $("saveCardBtn").addEventListener("click", async () => {
+  if (!cardReady) return;
   const btn = $("saveCardBtn");
   btn.disabled = true;
-  btn.textContent = "正在生成…";
+  btn.textContent = "正在保存…";
   try {
-    const canvas = await drawCard(getState().result);
+    const blob = await new Promise((resolve) => $("cardCanvas").toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("empty card");
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.download = `peti-card-${getState().result.publicId}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.href = url; link.download = "喵灵万圣节-免费角色卡.png";
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
     track("export_ready", { type: "free" });
-    btn.textContent = "已生成，长按或查看下载";
+    btn.textContent = "已保存免费卡";
   } catch {
-    btn.textContent = "生成失败，请重试";
+    btn.textContent = "保存失败，点击重试";
   }
   btn.disabled = false;
 });
-
-// 定制入口：付费链路未上线，占位反馈（ui-ux Q8 默认走法）
 $("customBtn").addEventListener("click", () => {
-  const errEl = $("resultError");
-  errEl.textContent = "付费定制即将开放，先保存免费卡吧";
-  errEl.classList.remove("hidden");
+  $("customStatus").textContent = "专属形象定制即将开放，敬请期待。";
+  $("customStatus").classList.remove("hidden");
 });
-
-// 再测一只：归档旧结果到 history，不覆盖（PRD §5.3）
 $("againBtn").addEventListener("click", () => {
-  const s = getState();
-  const history = s.history || [];
-  if (s.result) history.push({ testId: s.testId, token: s.token, result: s.result, petName: s.petName, petType: s.petType });
-  setState({
-    history,
-    testId: null,
-    token: null,
-    order: null,
-    answers: {},
-    currentQ: 0,
-    result: null,
-  });
+  if (entry) saveResult(entry);
+  // 新测在首页点击开始时创建；此处不清除其他宠物未完成的进度。
   location.href = "/index.html";
 });
-
 boot();

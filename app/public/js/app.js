@@ -1,5 +1,5 @@
-// 落地页：双入口 + 开场命名（用户裁决：命名前置，「请输入你好奇的宠物的名字」）+ 继续上次 + 找回
-import { getState, setState, initState, consumeSourceParam, shuffled, petNameCodePoints, fetchQuiz } from "./store.js";
+// 落地页：开场命名、继续答题和本浏览器历史结果。
+import { getState, setState, initState, getHistory, saveResult, consumeSourceParam, shuffled, petNameCodePoints, fetchQuiz } from "./store.js";
 import { initTrack, track } from "./track.js";
 
 const state = initState();
@@ -16,9 +16,8 @@ const startBtn = $("startBtn");
 function refreshToggle() {
   document.querySelectorAll(".type-btn").forEach((b) => {
     b.classList.toggle("selected", b.dataset.type === petType);
-    b.setAttribute("aria-checked", String(b.dataset.type === petType));
+    b.setAttribute("aria-pressed", String(b.dataset.type === petType));
   });
-  nameInput.placeholder = window.PETI_CONFIG.defaultNames[petType];
 }
 document.querySelectorAll(".type-btn").forEach((b) => {
   b.addEventListener("click", () => {
@@ -27,6 +26,24 @@ document.querySelectorAll(".type-btn").forEach((b) => {
   });
 });
 refreshToggle();
+
+const history = getHistory();
+$("historySection").classList.toggle("hidden", history.length === 0);
+for (const entry of history) {
+  const link = document.createElement("a");
+  link.className = "history-item";
+  link.href = `/result.html?testId=${encodeURIComponent(entry.testId)}`;
+  const label = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = entry.petName;
+  const role = document.createElement("span");
+  role.textContent = entry.result.roleName;
+  label.append(name, role);
+  link.appendChild(label);
+  link.insertAdjacentHTML("beforeend", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>');
+  $("historyList").appendChild(link);
+}
+$("continueBtn").classList.toggle("hidden", !state.testId || !state.order || Boolean(state.result));
 
 function showNameError(msg) {
   nameError.textContent = msg;
@@ -43,6 +60,7 @@ function setLoading(on) {
 }
 
 async function startQuiz() {
+  if (startBtn.disabled) return;
   hideNameError();
   const raw = nameInput.value.trim();
   const petName = raw || window.PETI_CONFIG.defaultNames[petType];
@@ -69,6 +87,8 @@ async function startQuiz() {
     // 每题选项随机排序一次后入 L，本次作答内顺序不变（PRD §3.2）
     const order = {};
     for (const q of quiz.questions) order[q.id] = shuffled(q.options.map((o) => o.id));
+    const current = getState();
+    if (current.result) saveResult(current);
     setState({
       petType,
       quizVersion,
@@ -89,51 +109,13 @@ async function startQuiz() {
 }
 startBtn.addEventListener("click", startQuiz);
 
-// 继续上次：有结果去结果页，答到一半回答题页（ui-ux Q4 默认走法）
+// 完成结果直接列在首页；继续入口只用于未完成的测试。
 $("continueBtn").addEventListener("click", () => {
   const s = getState();
-  if (s.result) location.href = "/result.html";
-  else if (s.testId && s.order) location.href = "/quiz.html";
+  if (s.testId && s.order && !s.result) location.href = "/quiz.html";
   else {
     const el = $("globalError");
     el.textContent = "还没有进行中的测试，先开始一个吧";
     el.classList.remove("hidden");
-  }
-});
-
-// 找回结果：testId + 口令，失败统一文案、保留输入（PRD §4.5/§7.7）
-$("recoverToggle").addEventListener("click", () => {
-  $("recoverForm").classList.toggle("hidden");
-});
-$("recoverForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const errEl = $("recoverError");
-  errEl.classList.add("hidden");
-  const testId = $("recoverTestId").value.trim();
-  const token = $("recoverToken").value.trim();
-  if (!testId || !token) {
-    errEl.textContent = "请填写测试编号和私密口令";
-    errEl.classList.remove("hidden");
-    return;
-  }
-  try {
-    const res = await fetch("/api/recover", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token, testId }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      // 统一文案，不泄露结果是否存在（裁决后口径）
-      errEl.textContent = "口令无效或已超过保留期";
-      errEl.classList.remove("hidden");
-      return;
-    }
-    setState({ petType: data.petType, quizVersion: data.quizVersion, testId, token, petName: data.petName, result: data });
-    track("recovery", { outcome: "success" });
-    location.href = "/result.html";
-  } catch {
-    errEl.textContent = "加载失败，请重试";
-    errEl.classList.remove("hidden");
   }
 });

@@ -7,18 +7,26 @@
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <main class="page">
-      <div class="progress" id="progress">第 1 / 10 题</div>
-      <div class="scene" id="scene"></div>
-      <h2 id="qtext"></h2>
-      <div id="options"></div>
-      <div class="row">
-        <button id="prevBtn" class="secondary hidden">上一题</button>
-        <button id="nextBtn" class="primary" disabled>下一题</button>
+    <main class="page quiz-page">
+      <nav class="quiz-nav" aria-label="答题进度">
+        <button id="prevBtn" class="icon-button" type="button" aria-label="返回首页">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+        </button>
+        <div class="progress" id="progress">第 1 / 10 题</div>
+      </nav>
+      <div class="progress-track" aria-hidden="true"><div id="progressFill" class="progress-fill"></div></div>
+      <div class="question-content">
+        <div class="scene" id="scene"></div>
+        <h2 id="qtext" tabindex="-1"></h2>
+        <div id="options" aria-label="选择一个答案"></div>
       </div>
+      <p class="quiz-hint">选择后自动进入下一题</p>
+      <div id="quizStatus" class="loading hidden" role="status" aria-live="polite"></div>
       <div id="quizError" class="error hidden" role="alert"></div>
+      <button id="retryBtn" class="secondary hidden" type="button">重试</button>
     </main>
     <script src="/js/config.js"></script>
+    <script type="module" src="/js/audio.js"></script>
     <script type="module" src="/js/quiz.js"></script>
   </body>
 </html>
