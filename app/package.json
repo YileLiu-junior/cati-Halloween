@@ -8,6 +8,7 @@
     "deploy": "wrangler pages deploy",
     "validate": "python tools/validate_quiz.py",
     "test": "playwright test",
+    "test:api": "node --test tools/custom-api.test.mjs",
     "test:headed": "playwright test --headed"
   },
   "devDependencies": {

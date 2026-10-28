@@ -1,5 +1,6 @@
 import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints } from "./store.js";
 import { track } from "./track.js";
+import { initCustom } from "./custom.js";
 
 const $ = (id) => document.getElementById(id);
 const active = getState();
@@ -204,10 +205,7 @@ $("saveCardBtn").addEventListener("click", async () => {
   }
   btn.disabled = false;
 });
-$("customBtn").addEventListener("click", () => {
-  $("customStatus").textContent = "专属形象定制即将开放，敬请期待。";
-  $("customStatus").classList.remove("hidden");
-});
+initCustom(() => entry);
 $("againBtn").addEventListener("click", () => {
   if (entry) saveResult(entry);
   // 新测在首页点击开始时创建；此处不清除其他宠物未完成的进度。

@@ -50,10 +50,49 @@
             <button id="againBtn" class="secondary">再测一只</button>
           </div>
         </div>
-        <p id="customStatus" class="custom-status hidden" role="status"></p>
         <p class="result-footer">喵灵万圣节 · 每只毛孩子都有另一面</p>
       </div>
     </main>
+    <dialog id="customDialog" class="custom-dialog" aria-labelledby="customTitle" aria-describedby="customIntro">
+      <div class="custom-heading">
+        <p class="custom-kicker">毛孩子的万圣节盲盒</p>
+        <button id="closeCustomBtn" class="icon-button" aria-label="关闭定制窗口" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+      </div>
+      <h2 id="customTitle">先选一张它的照片</h2>
+      <p id="customIntro" class="custom-intro">正脸清楚、毛色完整，尽量只有一只毛孩子。</p>
+      <ol class="custom-steps" aria-label="定制步骤">
+        <li id="stepPhoto" aria-current="step">1 上传照片</li><li id="stepPayment">2 确认付款</li><li id="stepGenerate">3 拆开盲盒</li>
+      </ol>
+      <section id="photoStep">
+        <div class="photo-picker">
+          <img id="photoPreview" class="hidden" alt="已选择的毛孩子照片" />
+          <label for="petPhoto" id="photoLabel">选择宠物照片<span>JPG、PNG、WebP，原图不超过 10MB</span></label>
+          <input id="petPhoto" type="file" accept="image/*" aria-describedby="customIntro photoHelp" />
+        </div>
+        <p id="photoHelp" class="custom-note">照片短边至少 512px。上传前会压缩照片并移除元信息。</p>
+        <label class="photo-consent"><input id="photoConsent" type="checkbox" /><span>我同意照片仅用于本次定制，并由 OpenAI 处理。云端照片和生成图片保留 7 天。请勿上传人脸或证件。</span></label>
+        <button id="uploadPhotoBtn" class="secondary" disabled type="button">上传这张照片</button>
+        <button id="generatePaidBtn" class="primary hidden" type="button">2元生成定制盲盒</button>
+        <p id="customAvailability" class="custom-note hidden">定制服务尚未开放，暂不收款。</p>
+      </section>
+      <section id="paymentStep" class="hidden">
+        <p id="paymentAmount" class="payment-amount"></p>
+        <p class="custom-note">在爱发电付款时，将下方支付标识完整填入订单留言。付款后返回这里核对订单，请勿重复付款。</p>
+        <div class="payment-reference"><code id="paymentReference"></code><button id="copyPaymentBtn" class="text-button" type="button">复制</button></div>
+        <a id="payLink" class="primary custom-pay-link" target="_blank" rel="noopener noreferrer">前往爱发电支付</a>
+        <label class="field payment-order"><span>爱发电订单号</span><input id="platformOrderNo" inputmode="numeric" autocomplete="off" maxlength="40" placeholder="从爱发电订单详情复制" /></label>
+        <button id="confirmPaymentBtn" class="secondary" type="button">我已付款，核对订单</button>
+      </section>
+      <section id="generationStep" class="hidden">
+        <p id="generationMessage" role="status"></p>
+        <button id="checkJobBtn" class="secondary hidden" type="button">查询进度</button>
+        <button id="retryJobBtn" class="primary hidden" type="button">重试生成</button>
+        <figure id="customOutput" class="hidden"><img id="customImage" alt="毛孩子的定制盲盒形象" /><figcaption class="custom-note">AI 生成 · 请在 7 天内保存</figcaption></figure>
+        <button id="saveCustomBtn" class="primary hidden" type="button">保存定制盲盒</button>
+      </section>
+      <p id="customProgress" class="custom-progress" role="status" aria-live="polite"></p>
+      <p id="customError" class="error hidden" role="alert"></p>
+    </dialog>
     <script src="/js/config.js"></script>
     <script type="module" src="/js/audio.js"></script>
     <script type="module" src="/js/result.js"></script>
