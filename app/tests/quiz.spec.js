@@ -166,19 +166,44 @@ test.describe("结果、历史与接口", () => {
     await expect(page.locator("#publicId")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText("公开编号");
     await expect(page.locator("#petNameText")).toHaveText("馒头");
-    await expect(page.locator("#cardCanvas")).toBeVisible();
+    await expect(page.locator("#holoCard")).toBeVisible();
     for (const selector of ["#radar", "#cardCanvas"]) {
       await expect.poll(() => page.$eval(selector, (canvas) => canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data.some((value) => value !== 0))).toBe(true);
     }
     const rarity = await page.locator("#rarity").boundingBox();
     const role = await page.locator("#roleName").boundingBox();
-    const card = await page.locator("#cardCanvas").boundingBox();
+    const card = await page.locator("#holoCard").boundingBox();
     const quote = await page.locator("#quote").boundingBox();
     const radar = await page.locator("#radar").boundingBox();
     expect(rarity.y).toBeLessThan(role.y);
     expect(role.y).toBeLessThan(card.y);
     expect(card.y + card.height).toBeLessThanOrEqual(quote.y);
     expect(quote.y).toBeLessThan(radar.y);
+  });
+
+  test("16 个结果角色均有对应的炫彩卡图片和线稿", async ({ page, request }) => {
+    const quiz = await (await request.get("/data/quiz-cat.json")).json();
+    for (const role of quiz.characters) {
+      for (const suffix of [".png", "-line.png"]) {
+        expect((await request.get(`/holo-card/roles/${role.id}${suffix}`)).ok()).toBe(true);
+      }
+    }
+    for (const role of [quiz.characters[0], quiz.characters[8]]) {
+      const result = { ...session.result, roleId: role.id, roleName: role.name };
+      await seedPage(page, { ...session, result, history: [] });
+      const frame = page.frameLocator("#holoCard");
+      await expect(frame.locator("#stage")).toBeVisible();
+      await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.config?.assets?.subject || el.contentWindow?.__holo?.fallback3d && el.contentWindow?.location.search), { timeout: 30000 }).toContain(role.id);
+      await expect(page.locator("#saveCardBtn")).toBeEnabled();
+      if (role.id === "ghost") {
+        const box = await frame.locator("#stage").boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
+        await page.mouse.up();
+        await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.getState?.().auto)).toBe(false);
+      }
+    }
   });
 
   test("保存免费卡导出非空 PNG", async ({ page }) => {
@@ -301,7 +326,7 @@ test.describe("结果、历史与接口", () => {
       const description = await page.locator("#shortLines").boundingBox();
       expect(radar.x + radar.width).toBeLessThanOrEqual(description.x + 1);
       expect(radar.width).toBeLessThanOrEqual(180);
-      const card = await page.locator("#cardCanvas").boundingBox();
+      const card = await page.locator("#holoCard").boundingBox();
       expect(Math.abs(card.x + card.width / 2 - width / 2)).toBeLessThanOrEqual(2);
     }
     await page.setViewportSize({ width: 390, height: 500 });

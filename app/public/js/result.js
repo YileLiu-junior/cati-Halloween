@@ -8,24 +8,7 @@ const requestedId = new URLSearchParams(location.search).get("testId");
 let entry = getResult(requestedId || active.testId);
 let image;
 let cardReady = false;
-const ILLUS = {
-  ghost: "/assets/illus-ghost.png",
-  zombie: "/assets/illus-zombie.png",
-  chainsaw: "/assets/illus-chainsaw.png",
-  mummy: "/assets/illus-mummy.png",
-  nurse: "/assets/illus-nurse.png",
-  vampire: "/assets/illus-vampire.png",
-  franken: "/assets/illus-franken.png",
-  pirate: "/assets/illus-pirate.png",
-  clown: "/assets/illus-clown.png",
-  bride: "/assets/illus-bride.png",
-  witch: "/assets/illus-witch.png",
-  werewolf: "/assets/illus-werewolf.png",
-  bat: "/assets/illus-bat.png",
-  gargoyle: "/assets/illus-gargoyle.png",
-  pharaoh: "/assets/illus-pharaoh.png",
-  pumpkin: "/assets/illus-pumpkin.png",
-};
+const ROLES = new Set(["ghost", "zombie", "chainsaw", "mummy", "nurse", "vampire", "franken", "pirate", "clown", "bride", "witch", "werewolf", "bat", "gargoyle", "pharaoh", "pumpkin"]);
 const AXES = [["E", "电量"], ["A", "贴贴"], ["B", "胆量"], ["D", "戏精"], ["F", "干饭"], ["C", "好奇"]];
 const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
 
@@ -65,8 +48,9 @@ async function boot() {
   drawRadar(result.axes);
   $("saveCardBtn").disabled = true;
   image = new Image();
-  image.src = ILLUS[result.roleId] || ILLUS.nurse;
+  if (ROLES.has(result.roleId)) image.src = `/holo-card/roles/${result.roleId}.png`;
   try {
+    if (!image.src) throw new Error("角色图片未找到");
     await image.decode();
     drawCard();
     cardReady = true;
@@ -78,6 +62,9 @@ async function boot() {
   }
   $("resultLoading").classList.add("hidden");
   $("resultMain").classList.remove("hidden");
+  if (ROLES.has(result.roleId)) {
+    $("holoCard").src = `/holo-card/?${new URLSearchParams({ role: result.roleId, name: result.roleName })}`;
+  }
   track("result_view", { roleId: result.roleId });
 }
 
@@ -140,9 +127,7 @@ function drawCard() {
   glow.addColorStop(1, "oklch(0.30 0.075 319 / 0)");
   ctx.fillStyle = glow; ctx.fillRect(40, 160, 670, 620);
   if (image?.naturalWidth) {
-    const scale = Math.min(650 / image.naturalWidth, 600 / image.naturalHeight);
-    const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
-    ctx.drawImage(image, (750 - w) / 2, 180 + (600 - h) / 2, w, h);
+    ctx.drawImage(image, 54, 380, 800, 1000, 135, 180, 480, 600);
   }
   ctx.fillStyle = "oklch(0.94 0.016 75)";
   ctx.font = `bold 40px ${FONT}`; ctx.fillText(petName, 375, 836, 630);
