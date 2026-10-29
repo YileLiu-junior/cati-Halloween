@@ -884,8 +884,12 @@ dialog dd {
 /* 无字卡：隐藏 DOM 标题覆盖层（文字层已做全透明，这里避免二次显示） */
 .artwork-title{display:none!important}
 /* Embedded in the result page: keep the original stage and shader, hide editor controls. */
-html, body { height: 100%; background: #130e11 !important; min-width: 0 !important; overflow: hidden; }
+html, body { height: 100%; background: transparent !important; color-scheme: dark; min-width: 0 !important; overflow: hidden; }
 body > header, body > footer, .artwork-bar, .parameter-panel, .stage-note { display: none !important; }
 body > main, .gallery { width: 100%; height: 100% !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; padding: 0 !important; }
 .stage { inset: 0 !important; }
 .loading { color: #eee !important; }
+.fallback3d { padding: 0 !important; }
+.flipper3d { width: auto !important; max-width: 94%; height: 94% !important; aspect-ratio: 3 / 4.6 !important; }
+.front3d { overflow: hidden; }
+.layer3d img { object-fit: fill; }

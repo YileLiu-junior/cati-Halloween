@@ -6,7 +6,25 @@ import { ICON_TREES } from "./icons.data.js";
 const icons = ICON_TREES;
 const $ = (id) => document.getElementById(id);
 const stage = $("stage");
+function syncPageBackground() {
+  const frame = window.frameElement;
+  if (!frame) return;
+  const rect = frame.getBoundingClientRect();
+  const style = document.documentElement.style;
+  style.setProperty("background-image", getComputedStyle(window.parent.document.body).backgroundImage, "important");
+  style.setProperty("background-size", `${window.parent.innerWidth}px ${window.parent.innerHeight}px`, "important");
+  style.setProperty("background-position", `${-rect.left}px ${-rect.top}px`, "important");
+  style.setProperty("background-repeat", "no-repeat", "important");
+}
+syncPageBackground();
+window.parent.addEventListener("scroll", syncPageBackground, { passive: true });
+window.parent.addEventListener("resize", syncPageBackground);
+window.addEventListener("unload", () => {
+  window.parent.removeEventListener("scroll", syncPageBackground);
+  window.parent.removeEventListener("resize", syncPageBackground);
+});
 const media = matchMedia("(prefers-reduced-motion: reduce)");
+const TILT_LIMIT = Math.PI / 18;
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-6, 6, 6, -6, 0.1, 100);
 camera.position.set(0, 0, 20);
@@ -22,6 +40,8 @@ let renderer,
 let auto = false,
   flipped = false,
   dragging = false,
+  returning = false,
+  tiltLocked = false,
   finish = "pearl",
   zoom = 1,
   cardAspect = 1.5;
@@ -47,6 +67,8 @@ const common = `
 precision highp float;
 varying vec2 vUv;
 uniform float uTime, uFoil, uScale, uDepth, uBgDepth, uFinish, uHasLine, uRelief, uSafeScale, uFxDepth, uHasFx;
+uniform float uCardStretch, uSubjectFactor;
+uniform vec2 uSubjectCenter;
 uniform vec2 uFit, uSafeOffset;
 uniform vec3 uView;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
@@ -82,7 +104,7 @@ const frontFragment =
 uniform sampler2D tSubject, tBackground, tText, tLine, tEffects;
 void main() {
   vec2 uv = vUv;
-  vec2 su = ((parallax(uv,uDepth)-.5)*uScale/uFit+.5)*uSafeScale+uSafeOffset;
+  vec2 su = (parallax(uv,uDepth)-.5)*uScale*uSafeScale*vec2(uCardStretch,1.15)/uSubjectFactor + uSubjectCenter;
   vec2 bu = parallax(uv,uBgDepth);
   vec4 subject = texture2D(tSubject,clamp(su,0.,1.));
   subject.a *= inside(su)*(1.-uRelief);
@@ -258,6 +280,28 @@ function notice(message) {
   $("notice").hidden = false;
   noticeTimer = setTimeout(() => ($("notice").hidden = true), 2600);
 }
+function subjectLayout(image) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let left = canvas.width, top = canvas.height, right = 0, bottom = 0;
+  for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+    if (pixels[(y * canvas.width + x) * 4 + 3] <= 5) continue;
+    left = Math.min(left, x); right = Math.max(right, x + 1);
+    top = Math.min(top, y); bottom = Math.max(bottom, y + 1);
+  }
+  if (right <= left || bottom <= top) throw Error("角色图片为空");
+  const stretch = 0.75 / (canvas.width / canvas.height);
+  const baseScale = config.parameters.subjectScale * config.safeArea.scale;
+  return {
+    stretch,
+    center: [(left + right) / (2 * canvas.width), (top + bottom) / (2 * canvas.height)],
+    factor: Math.min(2, 0.9 * stretch * baseScale / ((right - left) / canvas.width), 0.9 * baseScale / ((bottom - top) / canvas.height)),
+  };
+}
 async function init() {
   refreshIcons();
   const response = await fetch("./card-config.json");
@@ -338,7 +382,8 @@ async function init() {
   });
   const p = config.parameters || {};
   const imageAspect = textures[0].image.width / textures[0].image.height;
-  cardAspect = imageAspect;
+  const subject = subjectLayout(textures[0].image);
+  cardAspect = 0.75 / 1.15;
   const fit =
     config.artworkFit ||
     (config.sourceMode === "reference"
@@ -359,6 +404,9 @@ async function init() {
     uFit: { value: new THREE.Vector2(...fit) },
     uFoil: { value: p.foil ?? 0.52 },
     uScale: { value: p.subjectScale ?? 1 },
+    uCardStretch: { value: subject.stretch },
+    uSubjectFactor: { value: subject.factor },
+    uSubjectCenter: { value: new THREE.Vector2(...subject.center) },
     uDepth: { value: p.subjectDepth ?? 0.32 },
     uBgDepth: { value: p.backgroundDepth ?? -0.18 },
     uSafeScale: { value: config.safeArea?.scale ?? 1 },
@@ -395,6 +443,8 @@ async function init() {
     materials[role].depthWrite = role !== "web_effects";
   }
   const gltf = await new GLTFLoader().loadAsync(config.assets.model);
+  gltf.scene.scale.x *= subject.stretch;
+  gltf.scene.scale.y *= 1.15;
   root = new THREE.Group();
   root.add(gltf.scene);
   scene.add(root);
@@ -485,7 +535,7 @@ function fallback3D(error) {
   for (const name of ["background", "effects", "subject", "lineart", "text"]) {
     if (!config?.assets?.[name]) continue;
     const layer = document.createElement("div");
-    layer.className = "layer3d";
+    layer.className = `layer3d layer3d-${name}`;
     const img = document.createElement("img");
     img.src = config.assets[name];
     img.alt = config.title || "卡片";
@@ -497,6 +547,19 @@ function fallback3D(error) {
     if (name === "lineart") layer.style.mixBlendMode = "multiply";
     layers.set(name, { el: layer, z: roleZ[name] });
   }
+  const subjectImage = layers.get("subject").el.firstElementChild;
+  const fitSubject = () => {
+    const subject = subjectLayout(subjectImage);
+    const width = subject.factor / (config.parameters.subjectScale * config.safeArea.scale * subject.stretch);
+    const height = width * subject.stretch / 1.15;
+    for (const name of ["subject", "lineart"]) {
+      const img = layers.get(name)?.el.firstElementChild;
+      if (!img) continue;
+      Object.assign(img.style, { width: `${width * 100}%`, height: `${height * 100}%`, left: `${(0.5 - subject.center[0] * width) * 100}%`, top: `${(0.5 - subject.center[1] * height) * 100}%`, objectFit: "fill" });
+    }
+  };
+  if (subjectImage.complete) fitSubject();
+  else subjectImage.addEventListener("load", fitSubject, { once: true });
   const foil = document.createElement("div");
   foil.className = "foil3d";
   front.append(foil);
@@ -525,19 +588,20 @@ function fallback3D(error) {
   applyLayers();
   stage.addEventListener("pointermove", (e) => {
     const r = stage.getBoundingClientRect();
-    tx = Math.max(-0.5, Math.min(0.5, ((e.clientY - r.top) / r.height - 0.5) * 0.9));
-    ty = Math.max(-0.5, Math.min(0.5, ((e.clientX - r.left) / r.width - 0.5) * 1.1));
+    const x = ((e.clientY - r.top) / r.height - 0.5) * 0.9;
+    const y = ((e.clientX - r.left) / r.width - 0.5) * 1.1;
+    [tx, ty] = Math.hypot(x, y) > TILT_LIMIT ? [0, 0] : [x, y];
     lastMove = performance.now();
     const c = card.getBoundingClientRect();
     front.style.setProperty("--mx", Math.round(((e.clientX - c.left) / c.width) * 100) + "%");
     front.style.setProperty("--my", Math.round(((e.clientY - c.top) / c.height) * 100) + "%");
   });
-  stage.addEventListener("pointerleave", () => { lastMove = 0; });
+  stage.addEventListener("pointerleave", () => { tx = 0; ty = 0; lastMove = 0; });
   const frame = (now) => {
     if (sway && now - lastMove > 1500) {
       const t = now / 1000;
-      tx = Math.sin(t * 0.7) * 0.07 + 0.05;
-      ty = Math.sin(t * 0.55) * 0.11 - 0.18;
+      tx = Math.sin(t * 1.09375) * 0.07;
+      ty = Math.sin(t * 0.859375) * 0.14;
     }
     curX += (tx - curX) * 0.08;
     curY += (ty - curY) * 0.08;
@@ -630,7 +694,7 @@ function resize() {
   const width = stage.clientWidth,
     height = stage.clientHeight;
   const aspect = width / height;
-  const halfHeight = Math.max(config.sourceMode === "relief" ? 6.25 : 3.62 / cardAspect, 4.5 / aspect) / zoom;
+  const halfHeight = Math.max(6.5 * 1.15, 6.5 * 1.15 * cardAspect / aspect) / zoom;
   camera.left = -halfHeight * aspect;
   camera.right = halfHeight * aspect;
   camera.top = halfHeight;
@@ -750,6 +814,8 @@ function setupControls() {
   stage.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     dragging = true;
+    returning = false;
+    tiltLocked = false;
     setAuto(false);
     lastPointer = { x: e.clientX, y: e.clientY };
     stage.setPointerCapture(e.pointerId);
@@ -757,22 +823,26 @@ function setupControls() {
     stage.focus({ preventScroll: true });
   });
   stage.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
+    if (!dragging || tiltLocked) return;
     const base = flipped ? Math.PI : 0;
-    targetY = THREE.MathUtils.clamp(
-      targetY + (e.clientX - lastPointer.x) * 0.006,
-      base - 0.65,
-      base + 0.65,
-    );
-    targetX = THREE.MathUtils.clamp(
-      targetX + (e.clientY - lastPointer.y) * 0.004,
-      -0.36,
-      0.36,
-    );
+    const y = targetY - base + (e.clientX - lastPointer.x) * 0.006;
+    const x = targetX + (e.clientY - lastPointer.y) * 0.004;
+    if (Math.hypot(x, y) > TILT_LIMIT) {
+      targetX = 0;
+      targetY = base;
+      tiltLocked = true;
+    } else {
+      targetX = x;
+      targetY = base + y;
+    }
     lastPointer = { x: e.clientX, y: e.clientY };
   });
   const release = () => {
+    if (!dragging) return;
     dragging = false;
+    targetX = 0;
+    targetY = flipped ? Math.PI : 0;
+    returning = true;
     stage.classList.remove("dragging");
   };
   ["pointerup", "pointercancel", "lostpointercapture"].forEach((type) =>
@@ -794,8 +864,6 @@ function setupControls() {
         "ArrowRight",
         "ArrowUp",
         "ArrowDown",
-        "f",
-        "F",
         "r",
         "R",
         " ",
@@ -805,10 +873,6 @@ function setupControls() {
     e.preventDefault();
     if (e.key === " ") {
       setAuto(!auto);
-      return;
-    }
-    if (e.key.toLowerCase() === "f") {
-      flip();
       return;
     }
     if (e.key.toLowerCase() === "r") {
@@ -821,8 +885,11 @@ function setupControls() {
     if (e.key === "ArrowRight") targetY += 0.08;
     if (e.key === "ArrowUp") targetX -= 0.06;
     if (e.key === "ArrowDown") targetX += 0.06;
-    targetY = THREE.MathUtils.clamp(targetY, base - 0.65, base + 0.65);
-    targetX = THREE.MathUtils.clamp(targetX, -0.36, 0.36);
+    if (Math.hypot(targetX, targetY - base) > TILT_LIMIT) {
+      targetX = 0;
+      targetY = base;
+      returning = true;
+    }
   });
   $("front").onclick = () => flip(false);
   $("back").onclick = () => flip(true);
@@ -905,12 +972,16 @@ function animate(now) {
   if (document.hidden) return;
   if (!media.matches || auto) elapsed += dt;
   if (auto) {
-    targetY = Math.sin(elapsed * 0.42) * 0.23 - 0.055;
-    targetX = Math.sin(elapsed * 0.53) * 0.055 - 0.018;
+    targetY = Math.sin(elapsed * 0.65625) * 0.14;
+    targetX = Math.sin(elapsed * 0.828125) * 0.055;
   }
   const ease = media.matches ? 1 : 1 - Math.exp(-dt * 8);
   root.rotation.x += (targetX - root.rotation.x) * ease;
   root.rotation.y += (targetY - root.rotation.y) * ease;
+  if (returning && Math.hypot(root.rotation.x, root.rotation.y - (flipped ? Math.PI : 0)) < 0.005) {
+    returning = false;
+    setAuto(!media.matches && !flipped);
+  }
   root.updateMatrixWorld(true);
   uniforms.uView.value
     .copy(camera.position)

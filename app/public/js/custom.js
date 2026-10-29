@@ -1,15 +1,19 @@
+import { fetchQuiz } from "./store.js";
+
 const $ = (id) => document.getElementById(id);
 const show = (id, visible = true) => $(id).classList.toggle("hidden", !visible);
 const yuan = (fen) => String(fen / 100);
 
 export function initCustom(getEntry) {
   const dialog = $("customDialog");
-  let entry, photo, order, config, normalized, previewUrl, outputUrl;
+  let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
   let busy = false, pollTimer, pollStart, imageLoading = false;
 
   function error(message) { $("customError").textContent = message; show("customError", Boolean(message)); }
   function progress(message) { $("customProgress").textContent = message; }
   function buttons() {
+    $("useResultRole").disabled = busy || !roles.length;
+    $("browseRoles").disabled = busy || !roles.length;
     $("uploadPhotoBtn").disabled = busy || !normalized || !$("photoConsent").checked;
     $("generatePaidBtn").disabled = busy || !photo || !$("photoConsent").checked;
     $("petPhoto").disabled = busy;
@@ -31,19 +35,46 @@ export function initCustom(getEntry) {
       method: body ? "POST" : "GET", cache: "no-store",
       headers: body instanceof FormData ? {} : body ? { "content-type": "application/json" } : { "X-PT-Token": entry.token },
       body: body instanceof FormData ? body : body ? JSON.stringify({ ...body, token: entry.token }) : undefined,
-      signal: AbortSignal.timeout(190_000),
+      signal: AbortSignal.timeout(390_000),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "请求未完成，请稍后重试");
     return data;
   }
   function stage(name) {
-    show("photoStep", name === "photo"); show("paymentStep", name === "payment"); show("generationStep", name === "generate");
-    for (const [key, id] of [["photo", "stepPhoto"], ["payment", "stepPayment"], ["generate", "stepGenerate"]]) {
+    show("roleStep", name === "role"); show("photoStep", name === "photo"); show("paymentStep", name === "payment"); show("generationStep", name === "generate");
+    for (const [key, id] of [["role", "stepRole"], ["photo", "stepPhoto"], ["payment", "stepPayment"], ["generate", "stepGenerate"]]) {
       if (key === name) $(id).setAttribute("aria-current", "step"); else $(id).removeAttribute("aria-current");
     }
-    $("customTitle").textContent = { photo: "先选一张它的照片", payment: "照片就绪，去定制它", generate: "它的盲盒正在揭晓" }[name];
-    $("customIntro").textContent = { photo: "正脸清楚、毛色完整，尽量只有一只毛孩子。", payment: "付款核对成功后，自动开始生成。", generate: "每单生成一个形象，不用重复付款。" }[name];
+    $("customTitle").textContent = { role: "想让它扮演谁？", photo: "选一张它的照片", payment: "确认这次定制", generate: "它的盲盒正在揭晓" }[name];
+    $("customIntro").textContent = { role: "用测出的角色，或挑选一个喜欢的造型。", photo: "正脸清楚、毛色完整，尽量只有一只毛孩子。", payment: "付款核对成功后，自动开始生成。", generate: "每单生成一个形象，不用重复付款。" }[name];
+  }
+  function renderRole() {
+    const role = roles[roleIndex];
+    $("browseRarity").textContent = `测评模拟中 ${role.rarityPct}% 的毛孩子`;
+    $("browseRoleName").textContent = role.name;
+    const image = $("browseRoleImage");
+    show("browseRoleImage", false);
+    show("roleImageStatus");
+    $("roleImageStatus").textContent = "正在加载角色图片…";
+    $("chooseRole").disabled = true;
+    image.onload = () => { if (roles[roleIndex]?.id === role.id) { show("roleImageStatus", false); show("browseRoleImage"); $("chooseRole").disabled = false; } };
+    image.onerror = () => { if (roles[roleIndex]?.id === role.id) $("roleImageStatus").textContent = "图片加载失败，请切换角色后重试"; };
+    image.alt = role.name;
+    image.src = `/role-references/${role.id}.png`;
+    $("browseRoleQuote").textContent = `「${role.quote}」`;
+    $("roleCount").textContent = `${roleIndex + 1} / ${roles.length}`;
+    $("previousRole").disabled = roleIndex === 0;
+    $("nextRole").disabled = roleIndex === roles.length - 1;
+  }
+  function moveRole(delta) {
+    const next = Math.max(0, Math.min(roles.length - 1, roleIndex + delta));
+    if (next !== roleIndex) { roleIndex = next; renderRole(); }
+  }
+  function selectRole(role) {
+    selectedRole = role;
+    $("selectedRoleName").textContent = role.name;
+    stage("photo");
   }
   async function imageBlob(path) {
     const response = await fetch(path, { headers: { "X-PT-Token": entry.token }, cache: "no-store", signal: AbortSignal.timeout(30_000) });
@@ -63,6 +94,7 @@ export function initCustom(getEntry) {
     progress("");
     if (order.status === "unpaid") {
       stage("payment");
+      $("paymentRoleName").textContent = roles.find((role) => role.id === order.roleId)?.name || entry.result.roleName;
       $("paymentAmount").textContent = `${yuan(order.amountFen)} 元 · 1 个定制盲盒`;
       $("paymentReference").textContent = order.payId;
       const available = config?.available && order.amountFen === config.amountFen && new Date(order.expiresAt).getTime() > Date.now();
@@ -89,10 +121,12 @@ export function initCustom(getEntry) {
         } finally { imageLoading = false; }
       }
     } else if (order.status === "generating") {
-      $("generationMessage").textContent = "正在为毛孩子制作新造型，通常需要几分钟。请保持此页打开。";
+      $("generationMessage").textContent = "正在制作新造型并处理透明背景，通常需要几分钟。请保持此页打开。";
       schedulePoll();
     } else if (order.status === "uncertain") {
-      $("generationMessage").textContent = "生成结果暂未确认。请查询进度，或保存订单号联系作者，请勿重复付款或重新生成。";
+      $("generationMessage").textContent = order.errorCode === "CUTOUT_UNCERTAIN"
+        ? "新造型已生成，透明背景处理暂未确认。请保存订单号联系作者，请勿重复付款或重新生成。"
+        : "生成结果暂未确认。请查询进度，或保存订单号联系作者，请勿重复付款或重新生成。";
     } else {
       $("generationMessage").textContent = order.retryable ? "这次生成未完成，付款权益已保留，可以重试一次。" : "生成未完成。请保存订单号联系作者核对，请勿重复付款。";
       $("retryJobBtn").textContent = "重试生成";
@@ -105,7 +139,7 @@ export function initCustom(getEntry) {
   async function startGeneration() {
     progress("");
     stage("generate");
-    $("generationMessage").textContent = "正在为毛孩子制作新造型，通常需要几分钟。请保持此页打开。";
+    $("generationMessage").textContent = "正在制作新造型并处理透明背景，通常需要几分钟。请保持此页打开。";
     show("retryJobBtn", false);
     try { order = await api("/api/jobs", { payId: order.payId }); }
     catch (err) {
@@ -120,20 +154,43 @@ export function initCustom(getEntry) {
     if (busy) { if (!dialog.open) dialog.showModal(); return; }
     entry = getEntry();
     if (!entry) return;
+    roles = [];
     if (!dialog.open) dialog.showModal();
     pollStart = Date.now();
     run(async () => {
-      config = await api("/api/config");
-      $("generatePaidBtn").textContent = `${yuan(config.amountFen)}元生成定制盲盒`;
+      [config, roles] = await Promise.all([api("/api/config"), fetchQuiz(entry.petType).then((quiz) => quiz.characters)]);
+      $("generatePaidBtn").textContent = "下一步：确认付款";
       show("customAvailability", !config.available);
       const previous = await api(`/api/checkout?testId=${encodeURIComponent(entry.testId)}`);
       if (previous.order) {
         order = previous.order;
-        if (order.status === "unpaid" && config.available) order = { ...order, ...(await api("/api/checkout", { testId: entry.testId, photoId: order.photoId })) };
+        if (order.status === "unpaid" && config.available) order = { ...order, ...(await api("/api/checkout", { testId: entry.testId, photoId: order.photoId, roleId: order.roleId || entry.result.roleId })) };
         await renderOrder();
-      } else stage("photo");
+      } else {
+        const resultRole = roles.find((role) => role.id === entry.result.roleId);
+        if (!resultRole) throw new Error("角色信息暂时无法加载，请重试");
+        $("resultRoleChoice").textContent = resultRole.name;
+        roleIndex = roles.findIndex((role) => role.id === resultRole.id);
+        show("roleChoice"); show("roleBrowser", false);
+        stage("role");
+      }
     });
   }
+  $("useResultRole").addEventListener("click", () => selectRole(roles.find((role) => role.id === entry.result.roleId)));
+  $("browseRoles").addEventListener("click", () => { show("roleChoice", false); show("roleBrowser"); renderRole(); });
+  $("backToRoleChoice").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); });
+  $("previousRole").addEventListener("click", () => moveRole(-1));
+  $("nextRole").addEventListener("click", () => moveRole(1));
+  $("roleSlide").addEventListener("touchstart", (event) => { touchStart = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY }; }, { passive: true });
+  $("roleSlide").addEventListener("touchend", (event) => {
+    if (!touchStart) return;
+    const dx = event.changedTouches[0].clientX - touchStart.x;
+    const dy = event.changedTouches[0].clientY - touchStart.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) moveRole(dx < 0 ? 1 : -1);
+    touchStart = null;
+  }, { passive: true });
+  $("chooseRole").addEventListener("click", () => selectRole(roles[roleIndex]));
+  $("changeRole").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); stage("role"); });
   $("customBtn").addEventListener("click", openCustom);
   window.addEventListener("pageshow", () => {
     if (sessionStorage.getItem("peti:payment") === getEntry()?.testId) openCustom();
@@ -185,12 +242,8 @@ export function initCustom(getEntry) {
   }));
   $("generatePaidBtn").addEventListener("click", () => run(async () => {
     progress("正在准备支付…");
-    order = await api("/api/checkout", { testId: entry.testId, photoId: photo.photoId });
+    order = await api("/api/checkout", { testId: entry.testId, photoId: photo.photoId, roleId: selectedRole.id });
     await renderOrder();
-    if (order.status === "unpaid" && order.payUrl) {
-      sessionStorage.setItem("peti:payment", entry.testId);
-      location.assign(order.payUrl);
-    }
   }));
   $("copyPaymentBtn").addEventListener("click", () => run(async () => {
     try { await navigator.clipboard.writeText(order.payId); $("copyPaymentBtn").textContent = "已复制"; }

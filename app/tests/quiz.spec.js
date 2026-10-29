@@ -201,9 +201,34 @@ test.describe("结果、历史与接口", () => {
         await page.mouse.down();
         await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
         await page.mouse.up();
-        await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.getState?.().auto)).toBe(false);
+        await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.getState?.().auto)).toBe(true);
       }
     }
+  });
+
+  test("卡片超出十度时归位，键盘倾斜也受限", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedPage(page, session);
+    const iframe = page.locator("#holoCard");
+    await expect.poll(() => iframe.evaluate((el) => el.contentWindow?.__holo?.ready), { timeout: 30000 }).toBe(true);
+    const frame = page.frameLocator("#holoCard");
+    const stage = frame.locator("#stage");
+    const box = await stage.boundingBox();
+    const angle = () => iframe.evaluate((el) => {
+      const { x, y } = el.contentWindow.__holo.root.rotation;
+      return Math.hypot(x, y);
+    });
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 15, box.y + box.height / 2 + 10);
+    await expect.poll(angle).toBeGreaterThan(0.03);
+    expect(await angle()).toBeLessThanOrEqual(Math.PI / 18 + 0.001);
+    await page.mouse.move(box.x + box.width / 2 + 100, box.y + box.height / 2 + 80);
+    await expect.poll(angle).toBeLessThan(0.005);
+    await page.mouse.up();
+    await stage.focus();
+    for (let i = 0; i < 8; i++) await stage.press("ArrowRight");
+    expect(await angle()).toBeLessThanOrEqual(Math.PI / 18 + 0.001);
   });
 
   test("保存免费卡导出非空 PNG", async ({ page }) => {
@@ -211,6 +236,57 @@ test.describe("结果、历史与接口", () => {
     const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#saveCardBtn").click()]);
     expect(download.suggestedFilename()).toMatch(/\.png$/);
     expect((await stat(await download.path())).size).toBeGreaterThan(10_000);
+  });
+
+  test("结果页卡片、名字和性格解读保持居中", async ({ page }) => {
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await seedPage(page, session);
+      await expectNoOverflow(page);
+      const name = await page.locator("#petNameText").boundingBox();
+      const traits = await page.locator(".traits-layout").boundingBox();
+      const card = await page.locator("#holoCard").boundingBox();
+      expect(Math.abs(name.x + name.width / 2 - width / 2)).toBeLessThan(2);
+      expect(Math.abs(traits.x + traits.width / 2 - width / 2)).toBeLessThan(2);
+      expect(card.width / card.height).toBeCloseTo(0.75 / 1.15, 2);
+      await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.ready), { timeout: 30000 }).toBe(true);
+      const cardState = await page.locator("#holoCard").evaluate((el) => {
+        const h = el.contentWindow.__holo;
+        return { stretch: h.uniforms.uCardStretch.value, factor: h.uniforms.uSubjectFactor.value, sceneScale: h.root.children[0].scale.x, heightScale: h.root.children[0].scale.y };
+      });
+      expect(cardState.stretch).toBeCloseTo(0.75 / (908 / 1732), 3);
+      expect(cardState.sceneScale).toBeCloseTo(cardState.stretch, 3);
+      expect(cardState.heightScale).toBeCloseTo(1.15, 3);
+      expect(cardState.factor).toBeGreaterThan(1);
+      expect(cardState.factor).toBeLessThanOrEqual(2);
+      const background = await page.locator("#holoCard").evaluate((el) => ({
+        card: el.contentWindow.getComputedStyle(el.contentDocument.documentElement).backgroundImage,
+        page: getComputedStyle(document.body).backgroundImage,
+      }));
+      expect(background.card).toBe(background.page);
+      await page.evaluate(() => window.scrollBy(0, 100));
+      await expect.poll(() => page.locator("#holoCard").evaluate((el) => {
+        const y = parseFloat(el.contentWindow.getComputedStyle(el.contentDocument.documentElement).backgroundPositionY);
+        return Math.abs(y + el.getBoundingClientRect().top);
+      })).toBeLessThan(1);
+    }
+  });
+
+  test("不支持 WebGL 时仍完整显示拉长的角色卡", async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+        return type.startsWith("webgl") ? null : original.call(this, type, ...args);
+      };
+    });
+    await seedPage(page, session);
+    const card = page.frameLocator("#holoCard").locator(".flipper3d");
+    await expect(card).toBeVisible();
+    const ratio = await card.evaluate((el) => el.offsetWidth / el.offsetHeight);
+    expect(ratio).toBeCloseTo(0.75 / 1.15, 2);
+    const backgroundHeight = await card.locator(".layer3d-background img").evaluate((img) => img.offsetHeight / img.parentElement.offsetHeight);
+    expect(backgroundHeight).toBeCloseTo(1, 2);
+    await expect.poll(() => card.locator(".layer3d img").nth(1).evaluate((img) => img.naturalWidth && img.style.height)).toBeTruthy();
   });
 
   test("改名有保存与取消，成功状态明确，重新查看历史保留新名", async ({ page }) => {

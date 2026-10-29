@@ -1,6 +1,6 @@
 # 项目状态锚点（多 agent 协作必读）
 
-更新：2026-10-28 凌晨 ｜ 维护约定：agent 完成一整块工作后更新本文件对应小节；逐文件变更不记这里，以 git 为准（仓库已 init）。
+更新：2026-10-29 ｜ 维护约定：agent 完成一整块工作后更新本文件对应小节；逐文件变更不记这里，以 git 为准（仓库已 init）。
 
 ## 1. 目录归属
 
@@ -19,7 +19,7 @@
 | 文档 | 状态 |
 |---|---|
 | `doc/PRD-quiz.md` | **定稿 v1.2**（两轮 dev-review，报告在 doc/reviews/） |
-| `doc/PRD-payment-generation.md` | **已修订 v1.3**（2026-10-28）：按 quiz MVP 现状重写并过两轮 plan-critic-general PM 质询（报告 `doc/reviews/PRD-payment-generation-plan-critic-general-20261028-r1.md`、`-r2.md`，意见已全部应用）。PRD 生成器重生成与技术评审由另一会话执行（见 §7 实现线）；重生成时须与 §7 实现对齐三处分歧：流程顺序（实现=上传先行付费，PRD=付费先行）、生图供应商（实现=OpenAI Image 2，PRD=Seedream 4.0）、订单原子性（实现=D1，PRD=R2 条件写）；v1.3 的门槛五项、§5.5 中断补偿、退款缺省、并发认领验收两轮质询结论建议保留吸收 |
+| `doc/PRD-payment-generation.md` | **已修订 v1.3**（2026-10-28）：按 quiz MVP 现状重写并过两轮 plan-critic-general PM 质询（报告 `doc/reviews/PRD-payment-generation-plan-critic-general-20261028-r1.md`、`-r2.md`，意见已全部应用）。PRD 生成器重生成与技术评审由另一会话执行（见 §7 实现线）；重生成时须与 §7 实现对齐三处分歧：流程顺序（实现=上传先行付费，PRD=付费先行）、生图供应商（2026-10-29 实现已切换为 Seedream 4.0，与 PRD 对齐，见 §9）、订单原子性（实现=D1，PRD=R2 条件写）；v1.3 的门槛五项、§5.5 中断补偿、退款缺省、并发认领验收两轮质询结论建议保留吸收 |
 | `doc/quiz-design.md` `doc/quiz-design-dog.md` `doc/interaction-design.md` `doc/technical-notes.md` | 上游定稿 2026-10-26，勿改动；题库内容改动走 PRD §6.2 规则 |
 | `doc/review-convention.md` v1.0 | PRD 评审流程约定，评审 agent 只读不写 |
 | `doc/posthog-proxy-setup.md` v1.0 | PostHog 反代部署指南；PostHog 已注册（US 区）、key 已取 |
@@ -86,3 +86,19 @@
 活动实付改为 1.8 元，原价 6 元；北京时间 2026-10-31 18:00 恢复原价。爱发电后台须同步设置折扣结束。新增 D1 迁移保存订单型号、Webhook 接收与二次查单；用户返回 PETI 后自动恢复订单，核验到账后自动生成。自动回跳没有找到官方支持，不作已完成承诺。
 
 验证：11 项接口测试、4 项定制流程浏览器测试、原有 19 项浏览器回归通过；Functions 构建及本地新增数据库迁移通过。真实付款、线上 Webhook、平台自动回跳和生图仍未验证。接入与边界见 `doc/custom-generation-setup.md`。
+
+## 9. 2026-10-29 生图供应商切换为火山方舟 Seedream 4.0
+
+按用户决策把生图从 OpenAI Image 2 切到火山方舟 Seedream 4.0（`doubao-seedream-4-0-250828`，多图输入模式）：图1＝用户照片、图2＝按测评角色从私有 R2 取的参考图，配统一角色迁移 Prompt。配置从全局参考图数组改为 `roleImageKeys` 按角色登记（16 猫角色已映射 free-pic 素材）；未登记角色在收款前拦截，避免付款后无素材。密钥改用 `ARK_API_KEY`（旧 OpenAI Key 不再读取）；成品接受 PNG/JPEG 两种签名并按实际格式落库与返回。新增 `app/tools/upload-references.mjs` 一键同步参考图到 R2（规避中文文件名经 shell 传参转码问题），本地 16 张已传入。
+
+验证：11 项接口测试（新增用例：未登记角色不能创建订单）、27 项 Chromium 浏览器测试全部通过。真实方舟调用、线上部署、`ARK_API_KEY` 密钥与 `--remote` 参考图上传仍待配置验证；模型 id、`size`、水印参数以方舟控制台联调为准。接入说明已同步 `doc/custom-generation-setup.md`。
+
+## 10. 2026-10-29 Seedream 5.0 Flash 双图生图与透明 PNG
+
+本节覆盖 §9 的模型和输出约定。当前模型为 `doubao-seedream-5-0-flash-260915`。服务端确认爱发电到账后，按订单固定的角色读取私有 R2 参考图；用户照片为图1，角色图为图2，绑定用户完整 Prompt 请求 2048×2048 PNG。Prompt 原文保存于 `doc/prompts/pet-character.md`，运行时配置与 Markdown 由接口测试逐字核对。
+
+角色素材映射统一到 `app/functions/lib/role-references.js`，服务端、上传工具和素材准备工具共用。16 张 `free-pic/` 源图与角色选择预览逐字节核验通过，并已同步到本地 R2。远程 R2 未在本轮同步。未配置 Key 或所选角色参考图缺失时，在收款前拦截。
+
+按用户确认，生图后增加抠图。方舟原生透明模式只支持单张带 alpha 的输入图，不能直接用于双图输入；本版将原图私有留档，再以单图开启 `layer_decomposition`，按图层位置合成 1:1 PNG，并检查真实透明像素和非空主体。抠图或存储失败时保留订单并禁止整单重跑，避免重复生图费用。正常每轮包含生图和图层拆分各一次调用，图层拆分可能增加多张图片产出费用。
+
+验证：20 项接口测试、1 项 Cloudflare Workers 本地 2K PNG 解码/合成/导出测试、Functions 构建及参考图预检通过。浏览器全量首轮 28/29 通过，角色浏览出现一次 5 秒图片加载超时；单独重跑通过，随后 6 项定制流程串行复查全部通过。未执行真实付款、真实方舟生成或线上部署。宠物相似度、半透明配饰和抠图边缘需实图验收；上线需确认 Worker CPU 配额足够，不能把本地通过视为免费套餐可运行。

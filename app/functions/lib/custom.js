@@ -52,17 +52,17 @@ export function paymentConfigured(env) {
 }
 
 export function generationConfigured(env) {
-  return Boolean(env.OPENAI_API_KEY?.trim() && GENERATION_CONFIG.prompt.trim() && GENERATION_CONFIG.referenceImageKeys.length);
+  return Boolean(env.ARK_API_KEY?.trim() && GENERATION_CONFIG.prompt.trim() && Object.keys(GENERATION_CONFIG.roleImageKeys).length);
 }
 
-export async function requireGeneration(env) {
+export async function requireGeneration(env, result) {
   if (!generationConfigured(env)) fail("SERVICE_NOT_CONFIGURED", "定制服务尚未开放，暂不收款", 503);
-  if (GENERATION_CONFIG.referenceImageKeys.length > 15) fail("SERVICE_NOT_CONFIGURED", "定制素材配置有误，暂不收款", 503);
-  for (const key of GENERATION_CONFIG.referenceImageKeys) {
-    const object = typeof key === "string" && key.startsWith("references/") ? await env.PETI_IMAGES.head(key) : null;
-    if (!object || !["image/png", "image/jpeg", "image/webp"].includes(object.httpMetadata?.contentType) || object.size > 10 * 1024 * 1024) {
-      fail("SERVICE_NOT_CONFIGURED", "定制素材尚未就绪，暂不收款", 503);
-    }
+  // 角色没有登记参考图时在收款前拦截，避免付款后无法生成。
+  if (!result || !Object.hasOwn(GENERATION_CONFIG.roleImageKeys, result.roleId)) fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
+  const key = GENERATION_CONFIG.roleImageKeys[result.roleId];
+  const object = typeof key === "string" && key.startsWith("references/") ? await env.PETI_IMAGES.head(key) : null;
+  if (!object || !["image/png", "image/jpeg", "image/webp"].includes(object.httpMetadata?.contentType) || object.size <= 0 || object.size > 10 * 1024 * 1024) {
+    fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
   }
 }
 
@@ -72,7 +72,7 @@ export async function loadOrder(env, id, token) {
   if (!order) fail("ORDER_NOT_FOUND", "没有找到这笔订单", 404);
   // 订单凭证独立于免费结果的 30 天 TTL，已付未交付订单仍可取回。
   if (typeof token !== "string" || await sha256Hex(token) !== order.token_hash) fail("TOKEN_INVALID", "订单凭证无效", 401);
-  if (order.status === "generating" && Date.now() - order.started_at > 200_000) {
+  if (order.status === "generating" && Date.now() - order.started_at > 400_000) {
     await env.PETI_DB.prepare("UPDATE orders SET status = 'uncertain', retryable = 0, error_code = 'GENERATION_UNCERTAIN' WHERE id = ? AND status = 'generating'").bind(id).run();
     return { ...order, status: "uncertain", retryable: 0, error_code: "GENERATION_UNCERTAIN" };
   }
@@ -82,6 +82,7 @@ export async function loadOrder(env, id, token) {
 export function orderPayload(order) {
   return {
     payId: order.id, jobId: order.id, photoId: order.photo_id, status: order.status,
+    roleId: JSON.parse(order.result_json).roleId,
     amountFen: order.amount_fen, expiresAt: new Date(order.expires_at).toISOString(),
     retryable: Boolean(order.retryable && order.attempts < 2), errorCode: order.error_code,
     imageUrl: order.status === "ready" ? `/api/jobs/${order.id}/image` : null,

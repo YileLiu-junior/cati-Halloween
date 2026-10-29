@@ -9,10 +9,14 @@
     "validate": "python tools/validate_quiz.py",
     "test": "playwright test",
     "test:api": "node --test tools/custom-api.test.mjs",
+    "test:worker": "node --test tools/transparent-worker.test.mjs",
     "test:headed": "playwright test --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "wrangler": "^3.90.0"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
   }
 }
