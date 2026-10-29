@@ -9,10 +9,22 @@ let entry = getResult(requestedId || active.testId);
 let image;
 let cardReady = false;
 const ILLUS = {
-  nurse: "/assets/illus-nurse.png",
-  werewolf: "/assets/illus-werewolf.png",
+  ghost: "/assets/illus-ghost.png",
   zombie: "/assets/illus-zombie.png",
+  chainsaw: "/assets/illus-chainsaw.png",
   mummy: "/assets/illus-mummy.png",
+  nurse: "/assets/illus-nurse.png",
+  vampire: "/assets/illus-vampire.png",
+  franken: "/assets/illus-franken.png",
+  pirate: "/assets/illus-pirate.png",
+  clown: "/assets/illus-clown.png",
+  bride: "/assets/illus-bride.png",
+  witch: "/assets/illus-witch.png",
+  werewolf: "/assets/illus-werewolf.png",
+  bat: "/assets/illus-bat.png",
+  gargoyle: "/assets/illus-gargoyle.png",
+  pharaoh: "/assets/illus-pharaoh.png",
+  pumpkin: "/assets/illus-pumpkin.png",
 };
 const AXES = [["E", "电量"], ["A", "贴贴"], ["B", "胆量"], ["D", "戏精"], ["F", "干饭"], ["C", "好奇"]];
 const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
