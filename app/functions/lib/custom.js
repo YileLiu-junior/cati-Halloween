@@ -2,8 +2,8 @@ import { apiError, json, sha256Hex } from "./api.js";
 import { GENERATION_CONFIG } from "./generation-config.js";
 
 export const PHOTO_TTL = 7 * 24 * 60 * 60 * 1000;
-export const CUTOFF = Date.parse("2026-10-31T00:00:00+08:00");
-export const amountFen = (now = Date.now()) => now < CUTOFF ? 200 : 590;
+export const CUTOFF = Date.parse("2026-10-31T18:00:00+08:00");
+export const amountFen = (now = Date.now()) => now < CUTOFF ? 180 : 600;
 
 export function fail(code, message, status = 400, retryable = false) {
   throw apiError(code, message, status, retryable);
@@ -41,10 +41,13 @@ export async function authorize(env, testId, token) {
 }
 
 export function paymentConfigured(env) {
-  if (![env.AFDIAN_USER_ID, env.AFDIAN_API_TOKEN, env.AFDIAN_PLAN_ID, env.AFDIAN_PAY_URL].every((value) => typeof value === "string" && value.trim())) return false;
+  if (![env.AFDIAN_USER_ID, env.AFDIAN_API_TOKEN, env.AFDIAN_PLAN_ID, env.AFDIAN_SKU_ID, env.AFDIAN_PAY_URL].every((value) => typeof value === "string" && value.trim())) return false;
   try {
     const url = new URL(env.AFDIAN_PAY_URL);
-    return url.protocol === "https:" && ["afdian.com", "afdian.net"].includes(url.hostname) && !url.username && !url.password;
+    const skus = JSON.parse(url.searchParams.get("sku"));
+    return url.protocol === "https:" && ["afdian.com", "afdian.net"].includes(url.hostname) && !url.username && !url.password
+      && url.pathname === "/order/create" && url.searchParams.get("product_type") === "1" && url.searchParams.get("plan_id") === env.AFDIAN_PLAN_ID
+      && Array.isArray(skus) && skus.length === 1 && skus[0]?.sku_id === env.AFDIAN_SKU_ID && skus[0].count === 1;
   } catch { return false; }
 }
 

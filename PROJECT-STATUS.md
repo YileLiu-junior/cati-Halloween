@@ -19,7 +19,7 @@
 | 文档 | 状态 |
 |---|---|
 | `doc/PRD-quiz.md` | **定稿 v1.2**（两轮 dev-review，报告在 doc/reviews/） |
-| `doc/PRD-payment-generation.md` | draft，未送审 |
+| `doc/PRD-payment-generation.md` | **已修订 v1.3**（2026-10-28）：按 quiz MVP 现状重写并过两轮 plan-critic-general PM 质询（报告 `doc/reviews/PRD-payment-generation-plan-critic-general-20261028-r1.md`、`-r2.md`，意见已全部应用）。PRD 生成器重生成与技术评审由另一会话执行（见 §7 实现线）；重生成时须与 §7 实现对齐三处分歧：流程顺序（实现=上传先行付费，PRD=付费先行）、生图供应商（实现=OpenAI Image 2，PRD=Seedream 4.0）、订单原子性（实现=D1，PRD=R2 条件写）；v1.3 的门槛五项、§5.5 中断补偿、退款缺省、并发认领验收两轮质询结论建议保留吸收 |
 | `doc/quiz-design.md` `doc/quiz-design-dog.md` `doc/interaction-design.md` `doc/technical-notes.md` | 上游定稿 2026-10-26，勿改动；题库内容改动走 PRD §6.2 规则 |
 | `doc/review-convention.md` v1.0 | PRD 评审流程约定，评审 agent 只读不写 |
 | `doc/posthog-proxy-setup.md` v1.0 | PostHog 反代部署指南；PostHog 已注册（US 区）、key 已取 |
@@ -78,3 +78,11 @@
 新增私有 R2 照片存储、D1 原子订单与生成次数控制、订单确认、图片编辑打包、进度查询及私有 PNG 下载。Prompt、参考图、OpenAI Key 和付款配置均留空，未配置时阻止收费。线上 KV / D1 / R2、真实支付、生图和生命周期删除规则仍待配置验证。
 
 验证：8 项接口测试、23 项 Chromium 测试及 Functions 构建通过；本地数据库迁移已应用；390px 上传弹框已截图检查。支付与生图测试使用测试替身，没有真实扣款或生成。
+
+## 8. 2026-10-29 指定型号付款与活动价格
+
+按用户提供的链接，直接进入 `plan_id=2315e4b0d2e911f186f652540025c377`、`sku_id=231df344d2e911f1b46452540025c377`、数量 1 的付款页；访客页面已验证型号、1.80 元价格和 `remark` 预填。商品配置已填入 `app/wrangler.toml`，密钥与 Prompt、参考图仍留空。
+
+活动实付改为 1.8 元，原价 6 元；北京时间 2026-10-31 18:00 恢复原价。爱发电后台须同步设置折扣结束。新增 D1 迁移保存订单型号、Webhook 接收与二次查单；用户返回 PETI 后自动恢复订单，核验到账后自动生成。自动回跳没有找到官方支持，不作已完成承诺。
+
+验证：11 项接口测试、4 项定制流程浏览器测试、原有 19 项浏览器回归通过；Functions 构建及本地新增数据库迁移通过。真实付款、线上 Webhook、平台自动回跳和生图仍未验证。接入与边界见 `doc/custom-generation-setup.md`。

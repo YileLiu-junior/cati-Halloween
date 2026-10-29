@@ -8,8 +8,9 @@ import { onRequestPost as confirm } from "../functions/api/checkout/[payId]/conf
 import { onRequestPost as generate } from "../functions/api/jobs.js";
 import { onRequestGet as image } from "../functions/api/jobs/[jobId]/image.js";
 import { onRequestGet as status } from "../functions/api/jobs/[jobId].js";
+import { onRequestPost as webhook } from "../functions/api/afdian/webhook.js";
 import { sha256Hex } from "../functions/lib/api.js";
-import { amountFen, CUTOFF, jpegDimensions } from "../functions/lib/custom.js";
+import { amountFen, CUTOFF, jpegDimensions, paymentConfigured } from "../functions/lib/custom.js";
 import { GENERATION_CONFIG } from "../functions/lib/generation-config.js";
 import { afdianSignature, moneyFen } from "../functions/lib/payment.js";
 
@@ -22,6 +23,7 @@ const jpeg = Uint8Array.from([255, 216, 255, 192, 0, 17, 8, 2, 0, 2, 0, 3, 1, 17
 async function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec(readFileSync(new URL("../migrations/0001_custom_orders.sql", import.meta.url), "utf8"));
+  db.exec(readFileSync(new URL("../migrations/0002_order_sku.sql", import.meta.url), "utf8"));
   const objects = new Map(), kv = new Map();
   const env = {
     PETI_DB: { prepare(sql) { return { bind(...args) { return {
@@ -38,7 +40,8 @@ async function setup() {
       async head(key) { return this.get(key); },
       async delete(key) { objects.delete(key); },
     },
-    OPENAI_API_KEY: "test-key", AFDIAN_USER_ID: "creator", AFDIAN_API_TOKEN: "test-token", AFDIAN_PLAN_ID: "plan", AFDIAN_PAY_URL: "https://afdian.com/order/create?plan_id=plan",
+    OPENAI_API_KEY: "test-key", AFDIAN_USER_ID: "creator", AFDIAN_API_TOKEN: "test-token", AFDIAN_PLAN_ID: "2315e4b0d2e911f186f652540025c377", AFDIAN_SKU_ID: "231df344d2e911f1b46452540025c377",
+    AFDIAN_PAY_URL: 'https://afdian.com/order/create?product_type=1&plan_id=2315e4b0d2e911f186f652540025c377&sku=%5B%7B%22sku_id%22%3A%22231df344d2e911f1b46452540025c377%22,%22count%22%3A1%7D%5D&viokrz_ex=0',
   };
   const testId = crypto.randomUUID(), token = crypto.randomUUID().replaceAll("-", ""), tokenHash = await sha256Hex(token);
   const result = { testId, petType: "cat", roleId: "mummy", petName: "馒头", tokenHash, status: "completed" };
@@ -57,12 +60,13 @@ function post(handler, fixture, data, params = {}) {
 }
 async function newOrder(f) { configured(); return (await post(checkout, f, {})).json(); }
 function paidResponse(order, overrides = {}) {
-  return Response.json({ ec: 200, data: { list: [{ out_trade_no: "2026102800000001", status: 2, plan_id: "plan", total_amount: (order.amountFen / 100).toFixed(2), remark: order.payId, ...overrides }] } });
+  return Response.json({ ec: 200, data: { list: [{ out_trade_no: "2026102800000001", status: 2, product_type: 1, plan_id: "2315e4b0d2e911f186f652540025c377", sku_detail: [{ sku_id: "231df344d2e911f1b46452540025c377", count: 1 }], total_amount: (order.amountFen / 100).toFixed(2), remark: order.payId, ...overrides }] } });
 }
 
 test("价格按北京时间截止点切换，金额解析不使用浮点四舍五入，签名匹配官方示例", () => {
-  assert.equal(amountFen(CUTOFF - 1), 200); assert.equal(amountFen(CUTOFF), 590);
-  assert.equal(moneyFen("2.00"), 200); assert.equal(moneyFen("5.90"), 590);
+  assert.equal(CUTOFF, Date.parse("2026-10-31T10:00:00Z"));
+  assert.equal(amountFen(CUTOFF - 1), 180); assert.equal(amountFen(CUTOFF), 600);
+  assert.equal(moneyFen("1.80"), 180); assert.equal(moneyFen("6.00"), 600);
   for (const value of ["2.001", "2", "-2.00", 2, "NaN"]) assert.equal(moneyFen(value), null);
   assert.equal(afdianSignature("123", '{"a":333}', 1624339905, "abc"), "a4acc28b81598b7e5d84ebdc3e91710c");
 });
@@ -93,6 +97,10 @@ test("并发 checkout 只建一笔订单，前端不能改金额，未付订单�
   const orders = await Promise.all([post(checkout, f, { amountFen: 1 }), post(checkout, f, {})]);
   const [a, b] = await Promise.all(orders.map((r) => r.json()));
   assert.equal(a.payId, b.payId); assert.equal(a.amountFen, amountFen());
+  const url = new URL(a.payUrl);
+  assert.equal(url.pathname, "/order/create"); assert.equal(url.searchParams.get("plan_id"), f.env.AFDIAN_PLAN_ID);
+  assert.deepEqual(JSON.parse(url.searchParams.get("sku")), [{ sku_id: f.env.AFDIAN_SKU_ID, count: 1 }]);
+  assert.equal(url.searchParams.get("remark"), a.payId); assert.equal(url.searchParams.get("viokrz_ex"), "0");
   assert.equal((await post(generate, f, { payId: a.payId })).status, 402);
 });
 test("后端查单核验金额、方案、付款状态和留言，不信任客户端已付款字段", async () => {
@@ -101,7 +109,7 @@ test("后端查单核验金额、方案、付款状态和留言，不信任客�
   globalThis.fetch = async () => response;
   assert.equal((await post(confirm, f, { platformOrderNo: "2026102800000001", paid: true }, { payId: order.payId })).status, 409);
   assert.equal(f.db.prepare("SELECT status FROM orders").get().status, "unpaid");
-  for (const overrides of [{ plan_id: "wrong" }, { status: 0 }, { remark: "other-order" }, {}]) {
+  for (const overrides of [{ plan_id: "wrong" }, { status: 0 }, { remark: "other-order" }, { product_type: 0 }, { sku_detail: [{ sku_id: "wrong", count: 1 }] }, { sku_detail: [{ sku_id: f.env.AFDIAN_SKU_ID, count: 2 }] }, { sku_detail: null }, {}]) {
     f.db.prepare("UPDATE payment_gate SET next_check_at = 0").run(); response = paidResponse(order, overrides);
     const verified = await post(confirm, f, { platformOrderNo: "2026102800000001" }, { payId: order.payId });
     assert.equal(verified.status, Object.keys(overrides).length ? 409 : 200);
@@ -109,6 +117,36 @@ test("后端查单核验金额、方案、付款状态和留言，不信任客�
   globalThis.fetch = () => { throw new Error("must not query provider twice"); };
   assert.equal((await post(confirm, f, {}, { payId: order.payId })).status, 200);
   assert.equal(f.db.prepare("SELECT status FROM orders").get().status, "unlocked");
+});
+
+test("支付配置只能指向指定型号和单件数量，不接受主页或其他型号", async () => {
+  const f = await setup();
+  assert.equal(paymentConfigured(f.env), true);
+  for (const change of [{ AFDIAN_SKU_ID: "wrong" }, { AFDIAN_PLAN_ID: "wrong" }, { AFDIAN_PAY_URL: "https://afdian.com/a/PETI-Halloween" }]) assert.equal(paymentConfigured({ ...f.env, ...change }), false);
+});
+
+test("付款通知不可信，必须二次查单，成功后幂等解锁而不直接生图", async () => {
+  const f = await setup(), order = await newOrder(f);
+  const data = { data: { type: "order", order: { remark: order.payId, out_trade_no: "2026102800000001" } } };
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return paidResponse(order, { total_amount: "0.01" }); };
+  assert.equal((await post(webhook, f, data)).status, 409);
+  assert.equal(f.db.prepare("SELECT status FROM orders").get().status, "unpaid");
+  f.db.prepare("UPDATE payment_gate SET next_check_at = 0").run();
+  globalThis.fetch = async () => { calls++; return paidResponse(order); };
+  assert.equal((await (await post(webhook, f, data)).json()).ec, 200);
+  assert.equal(f.db.prepare("SELECT status FROM orders").get().status, "unlocked");
+  assert.equal(f.db.prepare("SELECT attempts FROM orders").get().attempts, 0);
+  assert.equal((await (await post(webhook, f, data)).json()).ec, 200);
+  assert.equal(calls, 2);
+});
+
+test("无 Content-Length 的超大通知也会在解析和查单前被拒绝", async () => {
+  const f = await setup();
+  globalThis.fetch = () => { throw new Error("must not call provider"); };
+  const request = new Request("https://pet.test/api/afdian/webhook", { method: "POST", body: "x".repeat(16_385) });
+  assert.equal(request.headers.has("content-length"), false);
+  assert.equal((await webhook({ env: f.env, request })).status, 413);
 });
 test("平台订单号由唯一约束保护，不能被两笔定制认领", async () => {
   const f = await setup(), order = await newOrder(f);

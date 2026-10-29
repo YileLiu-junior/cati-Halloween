@@ -15,6 +15,7 @@ export function initCustom(getEntry) {
     $("petPhoto").disabled = busy;
     $("photoConsent").disabled = busy;
     $("confirmPaymentBtn").disabled = busy;
+    $("checkPaymentBtn").disabled = busy;
     $("retryJobBtn").disabled = busy;
     $("checkJobBtn").disabled = busy;
   }
@@ -54,7 +55,7 @@ export function initCustom(getEntry) {
   }
   function schedulePoll() {
     clearTimeout(pollTimer);
-    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show("checkJobBtn"); return; }
+    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show(order.status === "unpaid" ? "checkPaymentBtn" : "checkJobBtn"); return; }
     pollTimer = setTimeout(() => run(checkOrder), 5000);
   }
   async function renderOrder() {
@@ -68,13 +69,16 @@ export function initCustom(getEntry) {
       show("payLink", Boolean(available && order.payUrl));
       if (available && order.payUrl) $("payLink").href = order.payUrl;
       else progress("付款链接暂不可用。如已付款，请填写订单号核对，请勿重复付款。");
+      schedulePoll();
       return;
     }
+    if (order.status === "unlocked") { await startGeneration(); return; }
     stage("generate");
-    show("retryJobBtn", order.status === "unlocked" || (order.status === "failed" && order.retryable));
+    show("retryJobBtn", order.status === "failed" && order.retryable);
     show("checkJobBtn", order.status === "generating" || order.status === "uncertain" || order.status === "ready");
     if (order.status === "ready") {
       $("customTitle").textContent = "毛孩子的盲盒来啦";
+      sessionStorage.removeItem("peti:payment");
       $("generationMessage").textContent = "定制完成，保存这份万圣节新造型。";
       if (!outputUrl && !imageLoading) {
         imageLoading = true;
@@ -89,9 +93,6 @@ export function initCustom(getEntry) {
       schedulePoll();
     } else if (order.status === "uncertain") {
       $("generationMessage").textContent = "生成结果暂未确认。请查询进度，或保存订单号联系作者，请勿重复付款或重新生成。";
-    } else if (order.status === "unlocked") {
-      $("generationMessage").textContent = "付款已确认，可以继续生成。";
-      $("retryJobBtn").textContent = "开始生成定制盲盒";
     } else {
       $("generationMessage").textContent = order.retryable ? "这次生成未完成，付款权益已保留，可以重试一次。" : "生成未完成。请保存订单号联系作者核对，请勿重复付款。";
       $("retryJobBtn").textContent = "重试生成";
@@ -115,11 +116,11 @@ export function initCustom(getEntry) {
     await renderOrder();
   }
 
-  $("customBtn").addEventListener("click", () => {
-    if (busy) { dialog.showModal(); return; }
+  function openCustom() {
+    if (busy) { if (!dialog.open) dialog.showModal(); return; }
     entry = getEntry();
     if (!entry) return;
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     pollStart = Date.now();
     run(async () => {
       config = await api("/api/config");
@@ -132,7 +133,12 @@ export function initCustom(getEntry) {
         await renderOrder();
       } else stage("photo");
     });
+  }
+  $("customBtn").addEventListener("click", openCustom);
+  window.addEventListener("pageshow", () => {
+    if (sessionStorage.getItem("peti:payment") === getEntry()?.testId) openCustom();
   });
+  window.addEventListener("pagehide", () => clearTimeout(pollTimer));
   $("closeCustomBtn").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => { clearTimeout(pollTimer); $("customBtn").focus({ preventScroll: true }); });
   $("photoConsent").addEventListener("change", buttons);
@@ -181,6 +187,10 @@ export function initCustom(getEntry) {
     progress("正在准备支付…");
     order = await api("/api/checkout", { testId: entry.testId, photoId: photo.photoId });
     await renderOrder();
+    if (order.status === "unpaid" && order.payUrl) {
+      sessionStorage.setItem("peti:payment", entry.testId);
+      location.assign(order.payUrl);
+    }
   }));
   $("copyPaymentBtn").addEventListener("click", () => run(async () => {
     try { await navigator.clipboard.writeText(order.payId); $("copyPaymentBtn").textContent = "已复制"; }
@@ -193,10 +203,15 @@ export function initCustom(getEntry) {
   }));
   $("retryJobBtn").addEventListener("click", () => run(startGeneration));
   $("checkJobBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
+  $("checkPaymentBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
+  $("payLink").addEventListener("click", () => sessionStorage.setItem("peti:payment", entry.testId));
   $("saveCustomBtn").addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = outputUrl; link.download = `喵灵万圣节-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-定制盲盒.png`;
     link.click(); $("saveCustomBtn").textContent = "已发起保存，再次保存";
   });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && dialog.open && order?.status === "generating" && !busy) run(checkOrder); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearTimeout(pollTimer);
+    else if (dialog.open && ["unpaid", "unlocked", "generating"].includes(order?.status) && !busy) run(checkOrder);
+  });
 }

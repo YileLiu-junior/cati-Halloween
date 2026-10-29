@@ -72,16 +72,19 @@
         <p id="photoHelp" class="custom-note">照片短边至少 512px。上传前会压缩照片并移除元信息。</p>
         <label class="photo-consent"><input id="photoConsent" type="checkbox" /><span>我同意照片仅用于本次定制，并由 OpenAI 处理。云端照片和生成图片保留 7 天。请勿上传人脸或证件。</span></label>
         <button id="uploadPhotoBtn" class="secondary" disabled type="button">上传这张照片</button>
-        <button id="generatePaidBtn" class="primary hidden" type="button">2元生成定制盲盒</button>
+        <button id="generatePaidBtn" class="primary hidden" type="button">1.8元生成定制盲盒</button>
         <p id="customAvailability" class="custom-note hidden">定制服务尚未开放，暂不收款。</p>
       </section>
       <section id="paymentStep" class="hidden">
         <p id="paymentAmount" class="payment-amount"></p>
-        <p class="custom-note">在爱发电付款时，将下方支付标识完整填入订单留言。付款后返回这里核对订单，请勿重复付款。</p>
+        <p class="custom-note">将直接打开指定型号的付款页。订单留言已自动填写，请保留原文。付款后返回 PETI，系统会自动查询付款状态。</p>
         <div class="payment-reference"><code id="paymentReference"></code><button id="copyPaymentBtn" class="text-button" type="button">复制</button></div>
-        <a id="payLink" class="primary custom-pay-link" target="_blank" rel="noopener noreferrer">前往爱发电支付</a>
-        <label class="field payment-order"><span>爱发电订单号</span><input id="platformOrderNo" inputmode="numeric" autocomplete="off" maxlength="40" placeholder="从爱发电订单详情复制" /></label>
-        <button id="confirmPaymentBtn" class="secondary" type="button">我已付款，核对订单</button>
+        <a id="payLink" class="primary custom-pay-link" rel="noreferrer">前往指定型号付款</a>
+        <button id="checkPaymentBtn" class="secondary" type="button">付款后查询状态</button>
+        <details class="payment-order"><summary>付款后仍未确认？</summary>
+          <label class="field"><span>爱发电订单号</span><input id="platformOrderNo" inputmode="numeric" autocomplete="off" maxlength="40" placeholder="从爱发电订单详情复制" /></label>
+          <button id="confirmPaymentBtn" class="secondary" type="button">核对订单号</button>
+        </details>
       </section>
       <section id="generationStep" class="hidden">
         <p id="generationMessage" role="status"></p>

@@ -3,6 +3,11 @@ pages_build_output_dir = "public"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+AFDIAN_PLAN_ID = "2315e4b0d2e911f186f652540025c377"
+AFDIAN_SKU_ID = "231df344d2e911f1b46452540025c377"
+AFDIAN_PAY_URL = "https://afdian.com/order/create?product_type=1&plan_id=2315e4b0d2e911f186f652540025c377&sku=%5B%7B%22sku_id%22%3A%22231df344d2e911f1b46452540025c377%22,%22count%22%3A1%7D%5D&viokrz_ex=0"
+
 # MVP 本地与线上同用一类命名空间；线上部署时换成真实 namespace id
 [[kv_namespaces]]
 binding = "PETI_KV"

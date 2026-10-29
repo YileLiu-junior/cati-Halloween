@@ -143,6 +143,8 @@ input { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 10px; b
 .payment-reference { display: flex; align-items: center; gap: 4px; margin-top: 12px; }
 .payment-reference code { overflow-wrap: anywhere; font-size: 12px; flex: 1; user-select: all; }
 .payment-order { margin-top: 24px; }
+.payment-order summary { min-height: 44px; padding: 10px 0; cursor: pointer; color: var(--text-dim); font-size: 13px; }
+.payment-order .secondary { width: 100%; margin-top: 12px; }
 #customOutput { margin: 20px 0; text-align: center; }
 #customImage { display: block; width: 100%; height: auto; border-radius: 12px; }
 .custom-progress { font-size: 13px; color: var(--orange); margin-top: 12px; }
