@@ -237,3 +237,11 @@
 5. 版本：两份题库与 `public/js/config.js` 升到 `cat-2026v4` / `dog-2026v4`；`sessions.js` 旧版兼容改为数组，同时接受 v2/v3。测试中的硬编码版本同步 v4。
 
 验证：`npm run validate` 通过；猫狗各 20000 次模拟，平局率 32.3%，A 轴均值 6.2、B 轴 6.5，16 角色全部可达（最低木乃伊 1.2%，小管家最高 19.9%）；`npm run test:api` 58/58；Playwright 67/67。未部署。
+
+## 24. 2026-10-31 后台音乐暂停与角色集合单角色查看（本地完成，未部署）
+
+1. **后台音乐**：`audio.js` 新增 `visibilitychange` 处理。标签页隐藏时立即 `pause()` 并保存播放位置；回到前台时，只有原本在播且未静音才恢复。页面初始就在后台时不自动播放。静音偏好仍优先。
+2. **角色集合单角色查看**：16 格里的每个角色改为可点击按钮；点击后隐藏网格，显示大立绘、角色名、模拟占比和台词，顶部“‹ 返回角色集合”。返回后焦点回到原卡片，关闭弹窗后焦点回到“角色集合”。320/390px 均无横向溢出。
+3. **测试**：`quiz.spec.js` 新增后台暂停/恢复用例，并把角色集合用例扩展为进入单角色、返回焦点、320px 检查。
+
+改动文件：`public/js/audio.js`、`public/js/result.js`、`public/result.html`、`public/css/style.css`、`tests/quiz.spec.js`。验证：Playwright 74/74、Node API 58/58；首次全量有一次首页答题用例超时，单跑与复跑均通过，属测试时序偶发。截图 `app/shots/result-role-detail-390.png`、`result-role-detail-320.png`。未部署。

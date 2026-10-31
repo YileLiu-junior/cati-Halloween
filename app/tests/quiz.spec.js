@@ -205,6 +205,25 @@ test.describe("首页与答题", () => {
     await expect(page.locator("#audioToggle")).toHaveAttribute("aria-pressed", "false");
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("peti:audio:v1")).muted)).toBe(true);
   });
+
+  test("切到后台时暂停音乐，回到前台继续播放", async ({ page }) => {
+    await page.goto("/");
+    const toggle = page.locator("#audioToggle");
+    if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(() => page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  });
 });
 
 test.describe("结果、历史与接口", () => {
@@ -295,7 +314,7 @@ test.describe("结果、历史与接口", () => {
     await expect(page.locator("#saveCardBtn")).toBeFocused();
   });
 
-  test("角色集合展示 16 个角色，关闭后焦点回到入口", async ({ page }) => {
+  test("角色集合可进入单角色查看，返回后焦点回到原卡片", async ({ page }) => {
     await seedPage(page, session);
     await expect(page.locator(".avatar-cta-note")).toContainText("上传照片生成毛孩子专属万圣节头像");
     const trigger = page.locator("#roleCollectionBtn");
@@ -305,9 +324,23 @@ test.describe("结果、历史与接口", () => {
     await expect(page.locator("#roleCollectionDialog")).toBeVisible();
     await expect(page.locator("#collectionTitle")).toHaveText("16 个角色");
     await expect(page.locator("#collectionGrid .collection-item")).toHaveCount(16);
+    const first = page.locator("#collectionGrid .collection-card").first();
+    const firstName = await page.locator("#collectionGrid .collection-name").first().textContent();
     await expect(page.locator("#collectionGrid .collection-name").first()).toHaveText(/咪$/);
+    await first.click();
+    await expect(page.locator("#collectionGrid")).toBeHidden();
+    await expect(page.locator("#collectionDetail")).toBeVisible();
+    await expect(page.locator("#collectionTitle")).toHaveText(firstName);
+    await expect(page.locator("#collectionDetailName")).toHaveText(firstName);
+    await expect(page.locator("#collectionDetailMeta")).toContainText("模拟占比");
+    await expect(page.locator("#collectionDetailQuote")).toContainText("「");
     await page.setViewportSize({ width: 320, height: 720 });
     expect(await page.locator("#roleCollectionDialog").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.locator("#collectionBack").click();
+    await expect(page.locator("#collectionDetail")).toBeHidden();
+    await expect(page.locator("#collectionGrid")).toBeVisible();
+    await expect(page.locator("#collectionTitle")).toHaveText("16 个角色");
+    await expect(first).toBeFocused();
     await page.locator("#closeCollectionBtn").click();
     await expect(page.locator("#roleCollectionDialog")).toBeHidden();
     await expect(trigger).toBeFocused();

@@ -64,9 +64,21 @@ function savePosition() {
   try { sessionStorage.setItem(POSITION_KEY, String(audio.currentTime)); } catch { /* 不影响播放。 */ }
 }
 window.addEventListener("pagehide", savePosition);
+// 切到后台立即暂停，回到前台只恢复原本在播的音乐；静音偏好不受影响。
+let resumeOnVisible = false;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    resumeOnVisible = !audio.paused && !muted;
+    if (resumeOnVisible) audio.pause();
+    savePosition();
+  } else if (resumeOnVisible) {
+    resumeOnVisible = false;
+    if (!muted) void play();
+  }
+});
 let lastSaved = 0;
 audio.addEventListener("timeupdate", () => {
   if (Math.abs(audio.currentTime - lastSaved) > 5) { savePosition(); lastSaved = audio.currentTime; }
 });
 render();
-if (!muted) void play();
+if (!muted && !document.hidden) void play();

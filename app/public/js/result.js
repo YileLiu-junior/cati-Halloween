@@ -164,24 +164,56 @@ document.addEventListener("pointerdown", event => {
   if (!event.target.closest(".rarity-area")) { rarityPinned = false; showRarity(false); }
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") { rarityPinned = false; showRarity(false); } });
-// 角色集合复用选角图集，只做浏览；真正的选择仍在定制弹窗里完成。
+// 角色集合复用选角图集：先看 16 格，点单个角色进入单角色查看。
 let collectionReady = false;
+let collectionAtlas = "";
+let activeCollectionCard = null;
+
+function showCollectionDetail(role, index, card) {
+  activeCollectionCard = card;
+  $("collectionGrid").classList.add("hidden");
+  $("collectionIntro").classList.add("hidden");
+  $("collectionDetail").classList.remove("hidden");
+  $("collectionTitle").textContent = role.name;
+  const image = $("collectionDetailImage");
+  image.src = collectionAtlas;
+  image.alt = role.name;
+  image.style.transform = `translate(${-25 * (index % 4)}%, ${-25 * Math.floor(index / 4)}%)`;
+  $("collectionDetailName").textContent = role.name;
+  $("collectionDetailMeta").textContent = `模拟占比 ${role.rarityPct}%`;
+  $("collectionDetailQuote").textContent = `「${role.quote}」`;
+  $("collectionDetailName").focus({ preventScroll: true });
+}
+
+function showCollectionGrid({ focus = true } = {}) {
+  $("collectionDetail").classList.add("hidden");
+  $("collectionGrid").classList.remove("hidden");
+  $("collectionIntro").classList.remove("hidden");
+  $("collectionTitle").textContent = "16 个角色";
+  if (focus) activeCollectionCard?.focus({ preventScroll: true });
+  activeCollectionCard = null;
+}
+
 async function openRoleCollection() {
   const dialog = $("roleCollectionDialog");
   if (!dialog.open) dialog.showModal();
   if (collectionReady) return;
   try {
     const quiz = await fetchQuiz(entry.petType);
-    const atlas = roleAtlasUrl(entry.petType);
+    collectionAtlas = roleAtlasUrl(entry.petType);
     const fragment = document.createDocumentFragment();
     quiz.characters.forEach((role, index) => {
       const item = document.createElement("li");
       item.className = "collection-item";
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "collection-card";
+      card.setAttribute("aria-label", `查看${role.name}`);
       const portrait = document.createElement("span");
       portrait.className = "collection-portrait";
       portrait.setAttribute("aria-hidden", "true");
       const image = document.createElement("img");
-      image.src = atlas;
+      image.src = collectionAtlas;
       image.alt = "";
       image.decoding = "async";
       image.style.transform = `translate(${-25 * (index % 4)}%, ${-25 * Math.floor(index / 4)}%)`;
@@ -189,7 +221,9 @@ async function openRoleCollection() {
       const name = document.createElement("span");
       name.className = "collection-name";
       name.textContent = role.name;
-      item.append(portrait, name);
+      card.append(portrait, name);
+      card.addEventListener("click", () => showCollectionDetail(role, index, card));
+      item.appendChild(card);
       fragment.appendChild(item);
     });
     $("collectionGrid").replaceChildren(fragment);
@@ -201,7 +235,11 @@ async function openRoleCollection() {
 }
 $("roleCollectionBtn").addEventListener("click", () => { void openRoleCollection(); });
 $("closeCollectionBtn").addEventListener("click", () => $("roleCollectionDialog").close());
-$("roleCollectionDialog").addEventListener("close", () => $("roleCollectionBtn").focus({ preventScroll: true }));
+$("collectionBack").addEventListener("click", () => showCollectionGrid());
+$("roleCollectionDialog").addEventListener("close", () => {
+  showCollectionGrid({ focus: false });
+  $("roleCollectionBtn").focus({ preventScroll: true });
+});
 initCustom(() => entry, media.viewImage);
 initHistory();
 $("againBtn").addEventListener("click", () => {

@@ -200,3 +200,11 @@
 6. **测试**：测试中的硬编码版本从 v3 改为 v4。
 
 验证：`npm run validate` 通过；猫狗各 20000 次模拟，兜底项占比 16.0%，平局率 32.3%，A 轴均值 6.2、B 轴 6.5，16 角色全部可达（最低木乃伊 1.2%，最高小管家 19.9%）；`npm run test:api` 58/58；Playwright 67/67。未部署。
+
+## 16. 2026-10-31 后台音乐暂停与角色集合单角色查看（本地完成，未部署）
+
+1. **音乐后台暂停**：`public/js/audio.js` 监听 `visibilitychange`。隐藏时若在播则 `pause()` 并 `savePosition()`；回到前台时只有 `resumeOnVisible` 为真且未静音才 `play()`。初始加载时 `document.hidden` 为真则不自动播放。没有改动静音按钮与跨页偏好逻辑。
+2. **单角色查看**：`result.js` 把 16 格改为 `button.collection-card`；`#collectionDetail` 显示大立绘、`#collectionDetailName`、`#collectionDetailMeta`（模拟占比）、`#collectionDetailQuote`。`#collectionBack` 返回网格；`showCollectionGrid` 恢复标题“16 个角色”并把焦点还给原卡片；弹窗关闭时重置视图并聚焦“角色集合”。`result.html` 与 `style.css` 增加对应结构与样式。
+3. **测试**：`quiz.spec.js` 新增 `visibilitychange` 暂停/恢复用例；角色集合用例改为进入单角色、断言隐藏网格/标题/占比/台词、320px 不溢出、返回焦点。
+
+截图：`result-role-detail-390.png`、`result-role-detail-320.png`。验证：Playwright 74/74、Node API 58/58。首次全量有一次首页答题用例超时，单跑与复跑通过，按测试时序偶发记录。未部署。
