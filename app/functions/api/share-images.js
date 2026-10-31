@@ -42,5 +42,6 @@ export const onRequestPost = ({ request, env }) => guarded(async () => {
     expirationTtl: TTL,
     metadata: { contentType: "image/png", width: image.width, height: image.height },
   });
-  return json({ path: `/api/share-images/${id}`, expiresIn: TTL }, 201);
+  // URL 必须带图片后缀：微信长按保存会按后缀决定文件类型，没有后缀会存成 .unknown。
+  return json({ path: `/api/share-images/${id}.png`, expiresIn: TTL }, 201);
 });

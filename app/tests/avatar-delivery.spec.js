@@ -5,7 +5,7 @@ test("专属链接直达订单，清除地址栏凭证，后台完成后保存�
   let ready=false;const headers=[];
   await page.route("**/api/checkout/test-order",route=>{headers.push(route.request().headers()["x-pt-token"]);return route.fulfill({json:{...order,status:ready?"ready":"queued",imageUrl:ready?"/api/jobs/test-order/image":null}});});
   await page.route("**/api/refund-requests**",route=>route.fulfill({json:{request:null}}));
-  await page.route("**/api/jobs/test-order/image",async route=>route.fulfill({contentType:"image/png",body:await readFile(new URL("../public/assets/illus-nurse.png",import.meta.url))}));
+  await page.route("**/api/jobs/test-order/image*",async route=>route.fulfill({contentType:"image/png",body:await readFile(new URL("../public/assets/illus-nurse.png",import.meta.url))}));
   await page.setViewportSize({width:390,height:844});await page.goto("/avatar.html#order=test-order&access=secret-order-access");
   await expect(page.locator("#avatarMessage")).toContainText("已排队");expect(page.url()).not.toContain("access=");expect(headers).toEqual(["secret-order-access"]);
   ready=true;await page.locator("#refreshAvatar").click();await expect(page.locator("#avatarImage")).toBeVisible();
@@ -13,6 +13,30 @@ test("专属链接直达订单，清除地址栏凭证，后台完成后保存�
   const bytes=await readFile(await download.path());expect(bytes.subarray(0,2).toString("hex")).toBe("ffd8");
   await page.reload();await expect(page.locator("#avatarImage")).toBeVisible();await page.screenshot({path:".wrangler/avatar-delivered-mobile.png",fullPage:true});
 });
+test("微信手机页保存头像前换成可长按保存的 https 图片地址",async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,userAgent:"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36 MicroMessenger/8.0"});
+  const page=await context.newPage();
+  const hostedId="11111111-2222-3333-4444-555555555555";
+  const image=await readFile(new URL("../public/assets/illus-nurse.png",import.meta.url));
+  const uploads=[];
+  try{
+    // 微信 WebView 没有 Web Share，强制走长按保存分支。
+    await page.addInitScript(()=>{Object.defineProperty(navigator,"share",{configurable:true,value:undefined});Object.defineProperty(navigator,"canShare",{configurable:true,value:undefined});});
+    await page.route("**/api/checkout/test-order",route=>route.fulfill({json:{...order,status:"ready",imageUrl:"/api/jobs/test-order/image"}}));
+    await page.route("**/api/refund-requests**",route=>route.fulfill({json:{request:null}}));
+    await page.route("**/api/jobs/test-order/image*",route=>route.fulfill({contentType:"image/png",body:image}));
+    await page.route("**/api/save-images",route=>{uploads.push(route.request().postDataBuffer());return route.fulfill({status:201,json:{path:`/api/save-images/${hostedId}.png`}});});
+    await page.route(`**/api/save-images/${hostedId}.png`,route=>route.fulfill({contentType:"image/png",body:image}));
+    await page.goto("/avatar.html#order=test-order&access=access");
+    await expect(page.locator("#avatarImage")).toBeVisible();
+    await page.locator("#downloadAvatar").click();
+    // 长按保存 blob: 图片在微信里会提示“保存失败”，所以页面上的图要换成 https 地址。
+    await expect(page.locator("#avatarImage")).toHaveAttribute("src",new RegExp(`/api/save-images/${hostedId}\\.png$`));
+    await expect(page.locator("#avatarMessage")).toContainText("长按头像保存");
+    expect(uploads.length).toBe(1);expect(uploads[0].subarray(0,2).toString("hex")).toBe("ffd8");
+  }finally{await context.close();}
+});
+
 test("超时未交付可提交退款，订单自动带入，提交后显示暂停生成",async({page})=>{
   let request=null,submitted;
   await page.route("**/api/checkout/test-order",route=>route.fulfill({json:{...order,status:"uncertain",refundStatus:request?.status==="pending"?"pending":"none",refundEligible:true}}));
@@ -27,7 +51,7 @@ test("超时未交付可提交退款，订单自动带入，提交后显示暂�
 test("退款待审核期间仍显示已生成的头像",async({page})=>{
   await page.route("**/api/checkout/test-order",route=>route.fulfill({json:{...order,status:"ready",refundStatus:"pending",refundEligible:true,imageUrl:"/api/jobs/test-order/image"}}));
   await page.route("**/api/refund-requests**",route=>route.fulfill({json:{request:{requestId:"refund-1",status:"pending",reason:"image_quality",note:""}}}));
-  await page.route("**/api/jobs/test-order/image",async route=>route.fulfill({contentType:"image/png",body:await readFile(new URL("../public/assets/illus-nurse.png",import.meta.url))}));
+  await page.route("**/api/jobs/test-order/image*",async route=>route.fulfill({contentType:"image/png",body:await readFile(new URL("../public/assets/illus-nurse.png",import.meta.url))}));
   await page.setViewportSize({width:390,height:844});await page.goto("/avatar.html#order=test-order&access=access");
   await expect(page.locator("#avatarImage")).toBeVisible();await expect(page.locator("#downloadAvatar")).toBeVisible();
   await expect(page.locator("#withdrawRefundBtn")).toBeVisible();await expect(page.locator("#avatarMessage")).toContainText("仍可保存");

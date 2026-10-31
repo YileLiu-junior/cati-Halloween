@@ -110,7 +110,8 @@ export function initResultMedia(getEntry) {
       });
       if (!response.ok) return null;
       const data = await response.json().catch(() => null);
-      return typeof data?.path === "string" && /^\/api\/share-images\/[0-9a-f-]{36}$/i.test(data.path)
+      // 托管地址带 .png 后缀：微信按后缀识别图片类型，无后缀会保存失败。
+      return typeof data?.path === "string" && /^\/api\/share-images\/[0-9a-f-]{36}\.png$/i.test(data.path)
         ? new URL(data.path, location.origin).href
         : null;
     } catch {
@@ -159,8 +160,12 @@ export function initResultMedia(getEntry) {
   window.addEventListener("resize", () => { if (viewer.open) fitImage(); });
 
   function posterDataUrl() {
-    const url = $("cardCanvas").toDataURL("image/png");
-    return url.length > 2_000_000 ? $("cardCanvas").toDataURL("image/jpeg", 0.92) : url;
+    // 微信安卓对体积较大的 PNG data URL 兼容性差，长按保存容易失败；
+    // 微信内直接退回 JPEG，其它浏览器优先保留无损 PNG。
+    const canvas = $("cardCanvas");
+    if (isWeChat) return canvas.toDataURL("image/jpeg", 0.92);
+    const url = canvas.toDataURL("image/png");
+    return url.length > 2_000_000 ? canvas.toDataURL("image/jpeg", 0.92) : url;
   }
   function usePosterFallback() {
     posterUrl = posterDataUrl();

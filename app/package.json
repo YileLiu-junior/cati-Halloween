@@ -10,7 +10,7 @@
     "deploy": "wrangler pages deploy",
     "validate": "python tools/validate_quiz.py",
     "test": "playwright test",
-    "test:api": "node --test tools/custom-api.test.mjs tools/delivery.test.mjs tools/test-generation-cli.test.mjs tools/free-orders.test.mjs tools/share-images.test.mjs",
+    "test:api": "node --test tools/custom-api.test.mjs tools/delivery.test.mjs tools/test-generation-cli.test.mjs tools/free-orders.test.mjs tools/share-images.test.mjs tools/save-images.test.mjs tools/preview-image.test.mjs",
     "test:generation": "node tools/test-generation.mjs",
     "test:headed": "playwright test --headed",
     "references:check": "node tools/upload-references.mjs --check",
@@ -22,6 +22,8 @@
     "wrangler": "^3.90.0"
   },
   "dependencies": {
-    "pngjs": "^7.0.0"
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "upng-js": "^2.1.0"
   }
 }

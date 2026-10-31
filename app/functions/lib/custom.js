@@ -153,8 +153,8 @@ export async function readPhoto(env, id, tokenHash) {
   return photo;
 }
 
-export function privateImage(body, type) {
-  return new Response(body, { headers: { "content-type": type, "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
+export function privateImage(body, type, cache = "private, no-store") {
+  return new Response(body, { headers: { "content-type": type, "cache-control": cache, "x-content-type-options": "nosniff" } });
 }
 
 // 浏览器先重编码为 JPEG，服务端继续核验文件签名、尺寸和长度。

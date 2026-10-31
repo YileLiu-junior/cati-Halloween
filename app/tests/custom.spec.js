@@ -86,7 +86,7 @@ async function mockFreeFlow(page, options = {}) {
     state.feedback = response;
     return route.fulfill({ json: { feedback: response } });
   });
-  await page.route(`**${IMAGE_PATH}`, async route => route.fulfill({ contentType: "image/png", body: await readFile(new URL("../public/assets/illus-nurse.png", import.meta.url)) }));
+  await page.route(`**${IMAGE_PATH}*`, async route => route.fulfill({ contentType: "image/png", body: await readFile(new URL("../public/assets/illus-nurse.png", import.meta.url)) }));
   return { calls, state };
 }
 async function uploadPhoto(page) {
@@ -272,8 +272,8 @@ test("生成中切换到等待图片生成，完成后隐藏两步进度", async
 test("头像加载前在成品位置显示方形加载占位", async ({ page, request }) => {
   await resultPage(page, request);
   await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }) });
-  await page.unroute(`**${IMAGE_PATH}`);
-  await page.route(`**${IMAGE_PATH}`, async route => {
+  await page.unroute(`**${IMAGE_PATH}*`);
+  await page.route(`**${IMAGE_PATH}*`, async route => {
     await new Promise(resolve => setTimeout(resolve, 700));
     await route.fulfill({ contentType: "image/png", body: await readFile(new URL("../public/assets/illus-nurse.png", import.meta.url)) });
   });

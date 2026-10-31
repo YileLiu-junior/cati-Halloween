@@ -23,7 +23,7 @@ async function mockReadyOrder(page, order = readyOrder()) {
   const png = await readFile(new URL("../public/assets/illus-nurse.png", import.meta.url));
   await page.route("**/api/free-orders**", route => route.fulfill({ json: { order, feedback: null, free: { remaining: 1 } } }));
   await page.route("**/api/photos/test-photo", route => route.fulfill({ contentType: "image/jpeg", body: png }));
-  await page.route(`**${IMAGE_PATH}`, route => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route(`**${IMAGE_PATH}*`, route => route.fulfill({ contentType: "image/png", body: png }));
 }
 
 async function seed(page, entries) {

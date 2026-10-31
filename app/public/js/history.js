@@ -2,7 +2,7 @@
 // 照片与头像只从云端按需读取（保留 7 天），不在本机缓存图片。
 import { getHistory, saveGeneration } from "./store.js";
 import { roleThumbUrl } from "./role-assets.js";
-import { jpegBlobFromImage, shareOrDownload } from "./save-image.js";
+import { imageHost, jpegFromUrl, previewUrl, shareOrDownload } from "./save-image.js";
 
 const ROLE_ID = /^[a-z]{2,16}$/;
 const MAX_PROBES = 8;
@@ -143,10 +143,14 @@ async function resolveGeneration(entry) {
   return generation;
 }
 
-async function fetchImage(url, token, key) {
+async function fetchImage(url, token, key, preview = false) {
   if (imageUrls.has(key)) return { url: imageUrls.get(key) };
   try {
-    const response = await fetch(url, { headers: { "X-PT-Token": token }, cache: "no-store", signal: AbortSignal.timeout(60_000) });
+    const response = await fetch(preview ? previewUrl(url) : url, {
+      headers: { "X-PT-Token": token },
+      cache: preview ? "default" : "no-store",
+      signal: AbortSignal.timeout(60_000),
+    });
     if (response.status === 410) return { expired: true };
     if (!response.ok) return { error: true };
     const url_ = URL.createObjectURL(await response.blob());
@@ -202,8 +206,6 @@ function makeCard(entry, generation) {
     const open = item.dataset.open !== "true";
     item.dataset.open = String(open);
     toggle.setAttribute("aria-expanded", String(open));
-    // 展开后再预编码 JPG，点击保存时能直接打开系统面板。
-    if (open) warmAvatarJpeg(item);
   });
   const detail = document.createElement("div");
   detail.className = "history-detail";
@@ -219,20 +221,9 @@ function makeCard(entry, generation) {
   return item;
 }
 
-function warmAvatarJpeg(card) {
-  if (card._avatarJpeg || card._avatarJpegRequest) return;
-  const image = card.querySelector('[data-shot="avatar"] img');
-  if (!image) return;
-  card._avatarJpegRequest = (image.complete ? Promise.resolve() : image.decode().catch(() => {}))
-    .then(() => jpegBlobFromImage(image))
-    .then((blob) => { card._avatarJpeg = blob; })
-    .catch(() => {})
-    .finally(() => { card._avatarJpegRequest = null; });
-}
-
-function enableSave(card, url, name) {
+function enableSave(card, displayUrl, originalUrl, name, entry) {
   const save = card.querySelector(".history-save");
-  save.href = url;
+  save.href = displayUrl;
   save.download = name;
   save.classList.remove("hidden");
   // 和结果页一致：保存得到 JPG，手机走系统面板存入相册，不打开新页面。
@@ -242,10 +233,16 @@ function enableSave(card, url, name) {
     save.dataset.busy = "true";
     const status = card.querySelector(".history-save-status");
     const image = card.querySelector('[data-shot="avatar"] img');
+    if (!card._hdJpeg) status.textContent = "正在准备高清原图…";
     try {
-      const blob = card._avatarJpeg || await jpegBlobFromImage(image);
-      card._avatarJpeg = blob;
-      const outcome = await shareOrDownload(blob, name, "毛孩子的万圣节头像");
+      // 列表里显示的是压缩预览；保存时再读取高清原图。
+      if (!card._hdJpeg) card._hdJpeg = await jpegFromUrl(originalUrl, entry.token);
+      const blob = card._hdJpeg;
+      const outcome = await shareOrDownload(blob, name, "毛孩子的万圣节头像", {
+        // 微信不能长按保存 blob:，先换成带 .jpg 后缀的临时直链再提示长按。
+        host: imageHost({ testId: entry.testId, token: entry.token }),
+        target: image,
+      });
       status.textContent = {
         shared: "已打开保存面板，选择“存储图像”即可存入相册。",
         downloaded: "已保存 JPG，可在相册或下载中查看。",
@@ -274,13 +271,14 @@ async function loadImages(entry, generation, card) {
   const token = entry.token;
   const photo = fetchImage(`/api/photos/${encodeURIComponent(generation.photoId)}`, token, `photo:${generation.photoId}`);
   // 同一订单重新生成时交付时间会变，用它做缓存键，避免继续显示旧头像。
-  const avatar = fetchImage(generation.imageUrl || `/api/jobs/${generation.orderId}/image`, token, `avatar:${generation.orderId}:${generation.deliveredAt || ""}`);
+  const avatarPath = generation.imageUrl || `/api/jobs/${generation.orderId}/image`;
+  const avatar = fetchImage(avatarPath, token, `avatar:${generation.orderId}:${generation.deliveredAt || ""}`, true);
   const [photoResult, avatarResult] = await Promise.all([photo, avatar]);
   setShot(card, "photo", photoResult, "上传的宠物照片");
   const avatarUrl = setShot(card, "avatar", avatarResult, "生成的万圣节头像");
   if (avatarUrl) {
     const safeName = String(entry.petName || "毛孩子").replace(/[<>:"/\\|?*\x00-\x1f]/g, "");
-    enableSave(card, avatarUrl, `PETI-${safeName}-万圣节头像.jpg`);
+    enableSave(card, avatarUrl, avatarPath, `PETI-${safeName}-万圣节头像.jpg`, entry);
   }
   if (photoResult.expired || photoResult.error || avatarResult.expired || avatarResult.error) {
     card.querySelector(".history-detail-note").textContent = photoResult.expired || avatarResult.expired

@@ -421,7 +421,7 @@ test.describe("结果、历史与接口", () => {
       // 微信保存不认 blob:，预览与查看器都必须换成可公开访问的地址。
       const previewSrc = await page.locator("#sharePreviewImage").getAttribute("src");
       expect(previewSrc).not.toMatch(/^blob:/);
-      expect(previewSrc).toMatch(/\/api\/share-images\/[0-9a-f-]{36}$/);
+      expect(previewSrc).toMatch(/\/api\/share-images\/[0-9a-f-]{36}\.png$/);
       await page.locator("#saveShareImage").tap();
       await expect(page.locator("#shareStatus")).toHaveText("请长按上方图片，选择保存到手机。");
       await page.locator("#previewShareLarge").tap();

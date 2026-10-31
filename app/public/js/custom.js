@@ -1,7 +1,7 @@
 import { track, observeView } from "./track.js";
 import { roleAtlasUrl } from "./role-assets.js";
 import { fetchQuiz, getState, setState, saveGeneration } from "./store.js";
-import { jpegBlobFromImage, shareOrDownload } from "./save-image.js";
+import { imageHost, jpegFromUrl, previewUrl as previewImageUrl, shareOrDownload } from "./save-image.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id, visible = true) => $(id).classList.toggle("hidden", !visible);
@@ -30,8 +30,8 @@ const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 export function initCustom(getEntry, openViewer) {
   const dialog = $("customDialog");
-  let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
-  let avatarJpeg = null, avatarJpegRequest = null;
+  let entry, photo, order, config, normalized, previewUrl, outputUrl, hostedUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
+  let hdJpeg = null;
   let free = null, feedback = null, browserId = null, regenerating = false;
   let serviceSnapshot = null, servicePrefetch = null;
   let waitStarted = null, waitSegment = null, waitTimer = null;
@@ -268,37 +268,10 @@ export function initCustom(getEntry, openViewer) {
   }
   function resetOutput() {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
-    outputUrl = null; imageLoading = false;
-    avatarJpeg = null; avatarJpegRequest = null;
+    outputUrl = null; hostedUrl = null; imageLoading = false;
+    hdJpeg = null;
     $("customImage").removeAttribute("src");
     show("customOutput", false); show("saveCustomBtn", false); show("customImagePlaceholder", false);
-  }
-  function prepareAvatarJpeg() {
-    if (avatarJpeg) return Promise.resolve(avatarJpeg);
-    if (avatarJpegRequest) return avatarJpegRequest;
-    const source = outputUrl;
-    const request = (async () => {
-      const image = $("customImage");
-      if (!image.complete) await image.decode().catch(() => {});
-      // 换图或重新生成时丢弃旧成品的转换结果。
-      if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
-      const blob = await jpegBlobFromImage(image);
-      if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
-      avatarJpeg = blob;
-      return blob;
-    })();
-    avatarJpegRequest = request;
-    request.then(
-      () => { if (avatarJpegRequest === request) avatarJpegRequest = null; },
-      () => { if (avatarJpegRequest === request) avatarJpegRequest = null; },
-    );
-    return request;
-  }
-  function warmAvatarJpeg() {
-    // 图片出现后空闲时先转好 JPG，点击保存时就能立即打开系统面板。
-    const warm = () => { void prepareAvatarJpeg().catch(() => {}); };
-    if ("requestIdleCallback" in window) requestIdleCallback(warm, { timeout: 3000 });
-    else setTimeout(warm, 600);
   }
   function resetPhotoSelection() {
     photo = null; normalized = null;
@@ -312,9 +285,8 @@ export function initCustom(getEntry, openViewer) {
   }
   async function loadOutput() {
     if (outputUrl) {
-      $("customImage").src = outputUrl;
+      $("customImage").src = hostedUrl || outputUrl;
       show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
-      warmAvatarJpeg();
       return;
     }
     if (imageLoading) return;
@@ -322,10 +294,10 @@ export function initCustom(getEntry, openViewer) {
     // 先占住成品的方形位置，图片到达前也能看出正在加载。
     show("customImagePlaceholder", true);
     try {
-      outputUrl = URL.createObjectURL(await imageBlob(order.imageUrl));
+      // 展示只下载压缩预览；高清原图在点击保存时再读取。
+      outputUrl = URL.createObjectURL(await imageBlob(previewImageUrl(order.imageUrl)));
       $("customImage").src = outputUrl;
       show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
-      warmAvatarJpeg();
     } catch (err) {
       error(err.message || "头像图片暂时无法读取，请稍后刷新重试");
     } finally { imageLoading = false; show("customImagePlaceholder", false); }
@@ -777,20 +749,27 @@ export function initCustom(getEntry, openViewer) {
   $("viewCustomLink").addEventListener("click", (event) => {
     event.preventDefault();
     if (!outputUrl) return;
-    openViewer?.(outputUrl, "万圣节头像大图", "毛孩子的万圣节头像", $("viewCustomLink"));
+    // 微信内保存过之后，大图也用可长按保存的 https 地址。
+    openViewer?.(hostedUrl || outputUrl, "万圣节头像大图", "毛孩子的万圣节头像", $("viewCustomLink"));
   });
   $("saveCustomBtn").addEventListener("click", () => run(async () => {
     if (!outputUrl) return;
     track("image_save_click", context());
     const button = $("saveCustomBtn");
     button.disabled = true;
-    // 已预编码时保持同步执行，iOS 才能在点击手势内直接打开系统面板。
-    if (!avatarJpeg) button.textContent = "正在生成 JPG…";
+    // 展示的是压缩预览；保存时再下载高清原图（同一页面重复保存复用结果）。
+    if (!hdJpeg) button.textContent = "正在准备高清原图…";
     try {
-      const blob = avatarJpeg || await prepareAvatarJpeg();
+      if (!hdJpeg) hdJpeg = await jpegFromUrl(order.imageUrl, entry.token);
+      const blob = hdJpeg;
       const filename = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.jpg`;
       // 手机上用系统面板直接「存储图像」进相册，整个过程留在当前页面。
-      const outcome = await shareOrDownload(blob, filename, "毛孩子的万圣节头像");
+      const outcome = await shareOrDownload(blob, filename, "毛孩子的万圣节头像", {
+        // 微信不能长按保存 blob:，先托管成带 .jpg 后缀的 https 地址再提示长按。
+        host: imageHost({ testId: entry.testId, token: entry.token }),
+        target: $("customImage"),
+        onHosted: (url) => { hostedUrl = url; },
+      });
       button.textContent = {
         shared: "已打开保存面板",
         downloaded: "已保存 JPG，再次保存",
@@ -799,7 +778,7 @@ export function initCustom(getEntry, openViewer) {
       }[outcome];
     } finally {
       button.disabled = false;
-      if (button.textContent === "正在生成 JPG…") button.textContent = "保存头像";
+      if (button.textContent === "正在准备高清原图…") button.textContent = "保存头像";
     }
   }));
   document.addEventListener("visibilitychange", () => {
