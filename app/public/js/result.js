@@ -1,6 +1,7 @@
 import { roleCardUrl, roleAtlasUrl } from "./role-assets.js";
 import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints, fetchQuiz } from "./store.js";
-import { track } from "./track.js";
+import { initTrack, track, observeView } from "./track.js";
+initTrack();
 import { initCustom } from "./custom.js";
 import { initHistory } from "./history.js";
 import { initResultMedia, probabilityText } from "./result-media.js";
@@ -67,7 +68,9 @@ async function boot() {
     $("cardCaption").textContent = "角色图片加载失败，刷新页面重试";
     $("cardCaption").setAttribute("role", "alert");
   }
-  track("result_view", { roleId: result.roleId });
+  track("result_view", { test_id: entry.testId, pet_type: entry.petType, role_id: result.roleId });
+  observeView($("saveCardBtn"), "share_entry_view", () => ({ test_id: entry.testId }));
+  observeView($("customBtn"), "generation_entry_view", () => ({ test_id: entry.testId }));
 }
 
 function drawRadar(axes) {

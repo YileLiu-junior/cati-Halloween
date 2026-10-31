@@ -124,6 +124,7 @@ export function initResultMedia(getEntry) {
   }
   $("saveCardBtn").addEventListener("click", async () => {
     if ($("saveCardBtn").disabled) return;
+    track("share_click", { test_id: getEntry()?.testId });
     if (!share.open) share.showModal();
     lockPage();
     $("shareStatus").textContent = posterUrl ? "" : "正在整理分享图片…";
@@ -134,6 +135,7 @@ export function initResultMedia(getEntry) {
       $("sharePreviewImage").src = url;
       $("sharePreviewImage").alt = $("cardCanvas").getAttribute("aria-label");
       $("sharePreview").classList.remove("hidden");
+      track("share_preview_view", { test_id: entry.testId });
       $("previewShareLarge").classList.remove("hidden");
       $("saveShareImage").href = url;
       $("saveShareImage").download = `喵灵万圣节-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-测评结果.png`;
@@ -145,6 +147,7 @@ export function initResultMedia(getEntry) {
   share.addEventListener("close", () => { lockPage(); $("saveCardBtn").focus({ preventScroll: true }); });
   $("previewShareLarge").addEventListener("click", () => viewImage(posterUrl, "分享图片大图", $("sharePreviewImage").alt, $("previewShareLarge")));
   $("saveShareImage").addEventListener("click", event => {
+    track("share_save_click", { test_id: getEntry()?.testId, save_method: isWeChat ? "long_press_instruction" : "download" });
     if (isWeChat) { event.preventDefault(); $("shareStatus").textContent = "请长按上方图片，选择保存到手机。"; }
     else $("shareStatus").textContent = "已发起保存；也可以长按预览图片保存。";
   });

@@ -148,7 +148,7 @@
         <div id="generationProgress" class="generation-progress hidden">
           <ol>
             <li id="genStepRequest" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在发送生成请求</span></li>
-            <li id="genStepWait" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在等待图片生成</span></li>
+            <li id="genStepWait" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在等待图片生成</span><span class="gen-hint">预计等待一分钟</span></li>
           </ol>
           <div class="dino-scene" aria-hidden="true">
             <span class="dino-moon"></span>
@@ -161,6 +161,10 @@
         <p id="generationMessage" role="status"></p>
         <button id="checkJobBtn" class="secondary hidden" type="button">查询进度</button>
         <button id="retryJobBtn" class="primary hidden" type="button">再试一次</button>
+        <div id="customImagePlaceholder" class="custom-image-placeholder hidden" role="status" aria-live="polite">
+          <span class="image-spinner" aria-hidden="true"></span>
+          <span>正在加载头像…</span>
+        </div>
         <figure id="customOutput" class="hidden">
           <a id="viewCustomLink" class="custom-output-link" href="#" aria-label="放大查看万圣节头像" aria-haspopup="dialog"><img id="customImage" alt="毛孩子的万圣节头像" /></a>
           <figcaption class="custom-note">点击图片可放大 · AI 生成 · 请在 7 天内保存</figcaption>

@@ -1,3 +1,4 @@
+import { track, observeView } from "./track.js";
 import { roleAtlasUrl } from "./role-assets.js";
 import { fetchQuiz, getState, setState, saveGeneration } from "./store.js";
 
@@ -29,6 +30,31 @@ export function initCustom(getEntry, openViewer) {
   let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
   let free = null, feedback = null, browserId = null, regenerating = false;
   let serviceSnapshot = null, servicePrefetch = null;
+  let waitStarted = null, waitSegment = null, waitTimer = null;
+  const completedSurveys = new Set();
+  let lastObservedStatus = "";
+  const context = () => ({ test_id: entry?.testId, order_id: order?.orderId, attempt_id: order?.attemptId,
+    pet_type: entry?.petType, selected_role_id: selectedRole?.id || order?.roleId,
+    service_available: config?.available ?? serviceSnapshot?.available ?? null,
+    availability_reason: free?.reason || serviceSnapshot?.free?.reason || null });
+  function endWait(reason) {
+    if (waitStarted === null) return;
+    track("generation_wait_pause", { ...context(), wait_segment_id: waitSegment, visible_wait_ms: Date.now() - waitStarted, reason });
+    waitStarted = null; clearInterval(waitTimer); waitTimer = null;
+  }
+  function beginWait() {
+    if (waitStarted !== null || !dialog.open || document.hidden) return;
+    waitStarted = Date.now(); waitSegment = crypto.randomUUID();
+    track("generation_wait_view", { ...context(), wait_segment_id: waitSegment, order_status: order?.status });
+    waitTimer = setInterval(() => track("generation_wait_checkpoint", { ...context(), wait_segment_id: waitSegment, visible_wait_ms: Date.now() - waitStarted }), 15000);
+  }
+  observeView($("surveyHeading"), "survey_view", context, () => order?.attemptId || "");
+  observeView($("tipAuthorLink"), "tip_entry_view", context, () => order?.attemptId || "");
+  observeView($("customImage"), "generated_image_view", context, () => order?.attemptId || "");
+  for (const [id, question] of [["surveyHeading", "satisfaction"], ["similarityQuestion", "similarity"], ["priceQuestion", "priceBand"], ["issueQuestion", "issue"], ["spendQuestion", "spendHistory"]]) {
+    observeView($(id), "survey_question_view", () => ({ ...context(), question_id: question }), () => order?.attemptId || "");
+  }
+  $("tipAuthorLink").addEventListener("click", () => track("tip_click", context()));
   let busy = false, pollTimer, pollStart, imageLoading = false, surveyFocusAttempt = null;
   let restoring = false, pickingPhoto = false, opening = 0;
   const roleImage = $("browseRoleImage");
@@ -185,6 +211,7 @@ export function initCustom(getEntry, openViewer) {
     });
   }
   function stage(name) {
+    if (entry) track("generation_step_view", { ...context(), step: name });
     show("roleStep", name === "role"); show("photoStep", name === "photo"); show("generationStep", name === "generate");
     show("surveyStep", false);
     for (const [key, id] of [["role", "stepRole"], ["photo", "stepPhoto"], ["generate", "stepGenerate"]]) {
@@ -223,6 +250,7 @@ export function initCustom(getEntry, openViewer) {
   function selectRole(role) {
     if (!role) return;
     selectedRole = role;
+    track("role_select", { ...context(), quiz_role_id: entry?.result?.roleId });
     $("selectedRoleName").textContent = role.name;
     stage("photo");
     buttons();
@@ -239,7 +267,7 @@ export function initCustom(getEntry, openViewer) {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     outputUrl = null; imageLoading = false;
     $("customImage").removeAttribute("src");
-    show("customOutput", false); show("saveCustomBtn", false);
+    show("customOutput", false); show("saveCustomBtn", false); show("customImagePlaceholder", false);
   }
   function resetPhotoSelection() {
     photo = null; normalized = null;
@@ -254,18 +282,20 @@ export function initCustom(getEntry, openViewer) {
   async function loadOutput() {
     if (outputUrl) {
       $("customImage").src = outputUrl;
-      show("customOutput"); show("saveCustomBtn");
+      show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
       return;
     }
     if (imageLoading) return;
     imageLoading = true;
+    // 先占住成品的方形位置，图片到达前也能看出正在加载。
+    show("customImagePlaceholder", true);
     try {
       outputUrl = URL.createObjectURL(await imageBlob(order.imageUrl));
       $("customImage").src = outputUrl;
-      show("customOutput"); show("saveCustomBtn");
+      show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
     } catch (err) {
       error(err.message || "头像图片暂时无法读取，请稍后刷新重试");
-    } finally { imageLoading = false; }
+    } finally { imageLoading = false; show("customImagePlaceholder", false); }
   }
   function renderRegenerateChoices() {
     const allowed = quotaAllowsRegenerate();
@@ -336,6 +366,11 @@ export function initCustom(getEntry, openViewer) {
     show("retryJobBtn", false); show("checkJobBtn", false); show("tipAuthorLink", false);
     renderGenerationProgress(null);
     if (!order) return;
+    const statusKey = `${order.orderId}:${order.attemptId}:${order.status}`;
+    if (statusKey !== lastObservedStatus) {
+      lastObservedStatus = statusKey;
+      track("generation_status_observed", { ...context(), status: order.status });
+    }
     // 把订单引用写进历史，历史抽屉就能找到这张照片和头像；图片仍留在云端。
     if (order.status === "ready" && order.imageUrl) {
       entry.generation = {
@@ -362,6 +397,7 @@ export function initCustom(getEntry, openViewer) {
       return;
     }
     if (["unlocked", "queued", "generating"].includes(order.status)) {
+      beginWait();
       stage("generate");
       $("customTitle").textContent = "正在生成万圣节头像";
       // 阶段文案由两步进度承担，避免同一句状态重复两遍。
@@ -372,6 +408,7 @@ export function initCustom(getEntry, openViewer) {
       return;
     }
     if (order.status === "ready") {
+      endWait("ready");
       stage("generate");
       $("customTitle").textContent = "万圣节头像来啦";
       $("customIntro").textContent = "头像已生成，保存它的万圣节新造型。";
@@ -383,6 +420,7 @@ export function initCustom(getEntry, openViewer) {
       return;
     }
     if (order.status === "failed") {
+      endWait("failed");
       stage("generate");
       $("customTitle").textContent = "这次生成没有完成";
       $("generationMessage").textContent = TEXT.failed;
@@ -390,6 +428,7 @@ export function initCustom(getEntry, openViewer) {
       return;
     }
     if (order.status === "uncertain") {
+      endWait("uncertain");
       stage("generate");
       $("customTitle").textContent = "头像还在确认中";
       $("generationMessage").textContent = TEXT.uncertain;
@@ -409,6 +448,7 @@ export function initCustom(getEntry, openViewer) {
   }
   function handleOrderError(err) {
     const code = err?.code;
+    track("flow_error", { ...context(), stage: "generation", error_code: code || "UNKNOWN" });
     if (code === "FREE_QUOTA_EXHAUSTED") {
       free = { ...(free || {}), exhausted: true, remaining: 0, reason: "QUOTA_EXHAUSTED" };
       error(TEXT.helpClosed);
@@ -429,6 +469,7 @@ export function initCustom(getEntry, openViewer) {
   }
   async function startFreeOrder(regenerate = false) {
     if (busy) return;
+    track("generation_start_click", { ...context(), is_regenerate: regenerate });
     busy = true; error(""); progress("");
     // 请求还没返回时也要让用户看到第一步在走。
     stage("generate");
@@ -446,6 +487,7 @@ export function initCustom(getEntry, openViewer) {
         regenerate: Boolean(regenerate || order),
       });
       if (data.order) order = data.order;
+      if (!data.idempotent) track("generation_requested", context());
       if (data.free) free = data.free;
       feedback = data.feedback ?? null;
       stage("generate");
@@ -469,6 +511,8 @@ export function initCustom(getEntry, openViewer) {
   }
   async function submitFeedback(patch, focusId) {
     if (busy || !order?.attemptId) return;
+    const changed = Object.entries(patch).find(([, value]) => value !== null);
+    if (changed) track("survey_answer_click", { ...context(), question_id: changed[0], answer_code: changed[1] });
     busy = true; buttons();
     // 每次提交整份草稿；显式传 null 表示清空，未传的字段沿用上一次答案。
     const pick = (key) => (Object.hasOwn(patch, key) ? patch[key] : feedback?.[key] ?? null);
@@ -484,6 +528,14 @@ export function initCustom(getEntry, openViewer) {
         testId: entry.testId, orderId: order.orderId, attemptId: order.attemptId, ...draft,
       });
       feedback = data.feedback;
+      if (changed) track("survey_answer_saved", { ...context(), question_id: changed[0], answer_code: changed[1] });
+      const satisfied = feedback?.satisfaction >= 2;
+      const complete = feedback?.satisfaction != null && feedback?.spendHistory != null &&
+        (satisfied ? feedback?.similarity != null && feedback?.priceBand != null : feedback?.issue != null);
+      if (complete && !completedSurveys.has(order.attemptId)) {
+        completedSurveys.add(order.attemptId);
+        track("survey_complete", { ...context(), branch: satisfied ? "satisfied" : "unsatisfied" });
+      }
       renderSurvey();
       if (focusId) $(focusId)?.focus({ preventScroll: true });
     } catch {
@@ -567,13 +619,14 @@ export function initCustom(getEntry, openViewer) {
   $("changeRole").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); stage("role"); buttons(); });
   void prefetchService();
   $("customBtn").addEventListener("click", () => {
+    track("generation_entry_click", { ...context(), test_id: getEntry()?.testId });
     // 全站 1000 份用完后不再进入定制流程；已经生成过头像的仍可进去查看和保存。
-    if (serviceSnapshot?.free?.exhausted && !getEntry()?.generation?.orderId) { openQuotaClosed(); return; }
+    if (serviceSnapshot?.free?.exhausted && !getEntry()?.generation?.orderId) { track("flow_error", { test_id: getEntry()?.testId, stage: "entry", error_code: "FREE_QUOTA_EXHAUSTED" }); openQuotaClosed(); return; }
     openCustom();
   });
   $("closeQuotaClosed").addEventListener("click", () => $("quotaClosedDialog").close());
   $("quotaClosedDialog").addEventListener("close", () => $("customBtn").focus({ preventScroll: true }));
-  window.addEventListener("pagehide", () => clearTimeout(pollTimer));
+  window.addEventListener("pagehide", () => { endWait("navigation"); clearTimeout(pollTimer); });
   $("closeCustomBtn").addEventListener("click", () => dialog.close());
   $("freeQuotaBadge").addEventListener("click", () => {
     const expanded = $("freeQuotaBadge").getAttribute("aria-expanded") === "true";
@@ -581,17 +634,19 @@ export function initCustom(getEntry, openViewer) {
     show("freeQuotaHelp", !expanded);
   });
   dialog.addEventListener("close", () => {
+    endWait("dialog_closed");
     document.documentElement.classList.remove("custom-open");
     clearTimeout(pollTimer);
     $("customBtn").focus({ preventScroll: true });
   });
-  $("pickPhotoBtn").addEventListener("click", () => { pickingPhoto = true; $("petPhoto").click(); });
+  $("pickPhotoBtn").addEventListener("click", () => { track("photo_pick_open", context()); pickingPhoto = true; $("petPhoto").click(); });
   $("petPhoto").addEventListener("cancel", () => { pickingPhoto = false; });
   $("photoConsent").addEventListener("change", buttons);
   $("petPhoto").addEventListener("change", () => run(async () => {
     pickingPhoto = false;
     const file = $("petPhoto").files?.[0];
     if (!file) return;
+    track("photo_selected", context());
     normalized = null; photo = null;
     show("startFreeBtn", false);
     show("photoPreview", false); show("uploadPhotoBtn");
@@ -625,12 +680,14 @@ export function initCustom(getEntry, openViewer) {
     } finally { URL.revokeObjectURL(url); $("petPhoto").value = ""; progress(""); }
   }));
   $("uploadPhotoBtn").addEventListener("click", () => run(async () => {
+    track("photo_upload_start", context());
     progress("正在上传照片…");
     const form = new FormData();
     form.set("testId", entry.testId); form.set("token", entry.token); form.set("consent", String($("photoConsent").checked));
     form.set("photo", normalized, "pet.jpg");
     try { photo = await uploadPhoto(form); }
-    catch (err) { $("uploadPhotoBtn").textContent = "重新上传这张照片"; throw err; }
+    catch (err) { track("flow_error", { ...context(), stage: "upload", error_code: err.code || "UPLOAD_FAILED" }); $("uploadPhotoBtn").textContent = "重新上传这张照片"; throw err; }
+    track("photo_upload_succeeded", context());
     progress("");
     show("uploadPhotoBtn", false); show("startFreeBtn");
     $("photoHelp").textContent = config?.available
@@ -689,12 +746,13 @@ export function initCustom(getEntry, openViewer) {
   });
   $("saveCustomBtn").addEventListener("click", () => {
     if (!outputUrl) return;
+    track("image_save_click", context());
     const link = document.createElement("a");
     link.href = outputUrl; link.download = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.png`;
     link.click(); $("saveCustomBtn").textContent = "已发起保存，再次保存";
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) clearTimeout(pollTimer);
-    else if (!pickingPhoto && dialog.open && ["unlocked", "queued", "generating", "uncertain"].includes(order?.status) && !busy) run(checkOrder);
+    if (document.hidden) { endWait("page_hidden"); clearTimeout(pollTimer); }
+    else if (!pickingPhoto && dialog.open && ["unlocked", "queued", "generating", "uncertain"].includes(order?.status) && !busy) { beginWait(); run(checkOrder); }
   });
 }

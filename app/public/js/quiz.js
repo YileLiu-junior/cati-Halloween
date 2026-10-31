@@ -1,6 +1,7 @@
 // 选项顺序和进度保存在当前浏览器，角色仍由服务端计算。
 import { getState, setState, saveResult, fetchQuiz, completeOptionOrder, petNameCodePoints, prefetchQuizImages } from "./store.js";
-import { track } from "./track.js";
+import { initTrack, track } from "./track.js";
+initTrack();
 
 const state = getState();
 const $ = (id) => document.getElementById(id);
@@ -88,6 +89,7 @@ async function main() {
   function render(focus = false) {
     if (!isCurrentSession()) return;
     const q = questions[qi];
+    track("quiz_question_view", { question_id: q.id, question_index: qi + 1, question_count: questions.length });
     progressEl.textContent = `第 ${qi + 1} / ${questions.length} 题`;
     $("progressFill").style.transform = `scaleX(${(qi + 1) / questions.length})`;
     $("scene").textContent = q.scene;
@@ -114,7 +116,7 @@ async function main() {
           option.setAttribute("aria-pressed", String(selected));
         });
         setBusy(true);
-        track("quiz_answer", { questionId: q.id, optionId: oid });
+        track("quiz_answer", { question_id: q.id, option_id: oid, question_index: qi + 1 });
         await new Promise((resolve) => setTimeout(resolve, 220));
         if (!isCurrentSession()) return;
         if (qi < questions.length - 1) {

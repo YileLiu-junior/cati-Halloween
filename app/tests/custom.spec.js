@@ -254,11 +254,28 @@ test("生成中切换到等待图片生成，完成后隐藏两步进度", async
   // 先等生成请求真正返回，避免轮询计时器与响应竞速。
   await expect(page.locator("#genStepWait")).toHaveAttribute("data-state", "active");
   await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "done");
+  await expect(page.locator("#genStepWait")).toContainText("预计等待一分钟");
   await expect(page.locator("#generationLive")).toHaveText("正在等待图片生成");
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   await page.clock.fastForward(5000);
   await expect(page.locator("#customImage")).toBeVisible();
   await expect(page.locator("#generationProgress")).toBeHidden();
+});
+
+test("头像加载前在成品位置显示方形加载占位", async ({ page, request }) => {
+  await resultPage(page, request);
+  await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }) });
+  await page.unroute(`**${IMAGE_PATH}`);
+  await page.route(`**${IMAGE_PATH}`, async route => {
+    await new Promise(resolve => setTimeout(resolve, 700));
+    await route.fulfill({ contentType: "image/png", body: await readFile(new URL("../public/assets/illus-nurse.png", import.meta.url)) });
+  });
+  await page.locator("#customBtn").click();
+  await expect(page.locator("#customImagePlaceholder")).toBeVisible();
+  await expect(page.locator("#customImagePlaceholder")).toContainText("正在加载头像");
+  await expect(page.locator("#customImage")).toBeHidden();
+  await expect(page.locator("#customImage")).toBeVisible();
+  await expect(page.locator("#customImagePlaceholder")).toBeHidden();
 });
 
 test("点击生成的头像打开大图查看器，保留长按保存与打开原图", async ({ page, request }) => {

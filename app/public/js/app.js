@@ -8,6 +8,7 @@ const state = initState();
 const source = consumeSourceParam();
 if (source) setState({ source });
 initTrack();
+track("landing_view");
 
 let petType = state.petType || "cat";
 const $ = (id) => document.getElementById(id);
@@ -83,6 +84,7 @@ async function startQuiz() {
     showNameError("名字限 1–12 字，请调整后再开始");
     return;
   }
+  track("quiz_start_click", { pet_type: petType });
   setLoading(true);
   try {
     const quizVersion = window.PETI_CONFIG.quizVersions[petType];
