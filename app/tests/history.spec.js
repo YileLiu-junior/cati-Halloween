@@ -69,6 +69,11 @@ test("结果页历史入口展示上传照片与生成头像，可展开保存",
   await expect(card.locator(".history-save")).toBeVisible();
   await expect(card.locator(".history-save")).toHaveAttribute("href", /^blob:/);
   await expect(page.locator(".history-result .history-badge")).toHaveText("已生成");
+  // 历史抽屉保存同样得到 JPG，不下载 PNG。
+  const [download] = await Promise.all([page.waitForEvent("download"), card.locator(".history-save").click()]);
+  expect(download.suggestedFilename()).toMatch(/\.jpg$/);
+  const bytes = await readFile(await download.path());
+  expect(bytes.subarray(0, 2).toString("hex")).toBe("ffd8");
 });
 
 test("320px 下首页与历史抽屉都不横向溢出", async ({ page, request }) => {

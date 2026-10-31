@@ -1,6 +1,7 @@
 import { track, observeView } from "./track.js";
 import { roleAtlasUrl } from "./role-assets.js";
 import { fetchQuiz, getState, setState, saveGeneration } from "./store.js";
+import { jpegBlobFromImage, shareOrDownload } from "./save-image.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id, visible = true) => $(id).classList.toggle("hidden", !visible);
@@ -270,20 +271,6 @@ export function initCustom(getEntry, openViewer) {
     $("customImage").removeAttribute("src");
     show("customOutput", false); show("saveCustomBtn", false); show("customImagePlaceholder", false);
   }
-  function toJpegBlob() {
-    return new Promise((resolve, reject) => {
-      const image = $("customImage");
-      if (!image.naturalWidth) { reject(new Error("头像还没加载完，请稍后再试")); return; }
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-      const context = canvas.getContext("2d");
-      // 成品是透明 PNG；JPG 不支持透明，用暖白底补齐，避免相册里出现黑底。
-      context.fillStyle = "#fdfaf3";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0);
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("保存图片失败，请稍后重试")), "image/jpeg", 0.92);
-    });
-  }
   function prepareAvatarJpeg() {
     if (avatarJpeg) return Promise.resolve(avatarJpeg);
     if (avatarJpegRequest) return avatarJpegRequest;
@@ -293,7 +280,7 @@ export function initCustom(getEntry, openViewer) {
       if (!image.complete) await image.decode().catch(() => {});
       // 换图或重新生成时丢弃旧成品的转换结果。
       if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
-      const blob = await toJpegBlob();
+      const blob = await jpegBlobFromImage(image);
       if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
       avatarJpeg = blob;
       return blob;
@@ -799,33 +786,14 @@ export function initCustom(getEntry, openViewer) {
     try {
       const blob = avatarJpeg || await prepareAvatarJpeg();
       const filename = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.jpg`;
-      const file = new File([blob], filename, { type: "image/jpeg" });
       // 手机上用系统面板直接「存储图像」进相册，整个过程留在当前页面。
-      let canShare = false;
-      try {
-        canShare = typeof navigator.share === "function" && typeof navigator.canShare === "function"
-          && matchMedia("(pointer: coarse)").matches && navigator.canShare({ files: [file] });
-      } catch { /* 不支持文件分享时走下载。 */ }
-      if (canShare) {
-        try {
-          await navigator.share({ files: [file], title: "毛孩子的万圣节头像" });
-          button.textContent = "已打开保存面板";
-          return;
-        } catch (error) {
-          if (error.name === "AbortError") { button.textContent = "保存头像"; return; }
-        }
-      }
-      if (/MicroMessenger/i.test(navigator.userAgent)) {
-        // 微信内置浏览器不支持文件下载，也不该把用户带去新页面；改为长按保存。
-        button.textContent = "请长按上方头像保存";
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url; link.download = filename; link.rel = "noopener";
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      button.textContent = "已保存 JPG，再次保存";
+      const outcome = await shareOrDownload(blob, filename, "毛孩子的万圣节头像");
+      button.textContent = {
+        shared: "已打开保存面板",
+        downloaded: "已保存 JPG，再次保存",
+        wechat: "请长按上方头像保存",
+        cancelled: "保存头像",
+      }[outcome];
     } finally {
       button.disabled = false;
       if (button.textContent === "正在生成 JPG…") button.textContent = "保存头像";

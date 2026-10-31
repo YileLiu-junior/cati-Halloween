@@ -436,6 +436,8 @@ html.history-open, html.history-open body { overflow: hidden; }
 .history-detail { display: none; padding: 0 12px 12px; }
 .history-avatar[data-open="true"] .history-detail { display: block; }
 .history-detail-note { color: var(--text-dim); font-size: 12px; line-height: 1.8; }
+.history-save-status { margin-top: 8px; color: var(--text-dim); font-size: 12px; line-height: 1.8; }
+.history-save-status:empty { display: none; }
 .history-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .history-detail-actions > * { flex: 1 1 130px; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 12px; color: var(--text); text-align: center; text-decoration: none; font-size: 13px; }
 .history-detail-actions .text-button { color: var(--text-dim); }

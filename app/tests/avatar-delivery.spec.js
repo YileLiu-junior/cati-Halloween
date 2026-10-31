@@ -9,7 +9,8 @@ test("专属链接直达订单，清除地址栏凭证，后台完成后保存�
   await page.setViewportSize({width:390,height:844});await page.goto("/avatar.html#order=test-order&access=secret-order-access");
   await expect(page.locator("#avatarMessage")).toContainText("已排队");expect(page.url()).not.toContain("access=");expect(headers).toEqual(["secret-order-access"]);
   ready=true;await page.locator("#refreshAvatar").click();await expect(page.locator("#avatarImage")).toBeVisible();
-  const [download]=await Promise.all([page.waitForEvent("download"),page.locator("#downloadAvatar").click()]);expect(download.suggestedFilename()).toBe("PETI-馒头-万圣节头像.png");
+  const [download]=await Promise.all([page.waitForEvent("download"),page.locator("#downloadAvatar").click()]);expect(download.suggestedFilename()).toBe("PETI-馒头-万圣节头像.jpg");
+  const bytes=await readFile(await download.path());expect(bytes.subarray(0,2).toString("hex")).toBe("ffd8");
   await page.reload();await expect(page.locator("#avatarImage")).toBeVisible();await page.screenshot({path:".wrangler/avatar-delivered-mobile.png",fullPage:true});
 });
 test("超时未交付可提交退款，订单自动带入，提交后显示暂停生成",async({page})=>{

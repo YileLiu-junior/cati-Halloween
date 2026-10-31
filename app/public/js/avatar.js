@@ -1,4 +1,5 @@
 import { initAvatarSupport, refundLocked, imageWithheld } from "./avatar-support.js";
+import { jpegBlobFromImage, shareOrDownload } from "./save-image.js";
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get("order"), token = params.get("access");
@@ -8,9 +9,17 @@ if (id && token) {
   history.replaceState(null, "", `${location.pathname}#order=${encodeURIComponent(id)}`);
 }
 const access = token || sessionStorage.getItem(`peti:avatar:${id}`);
-let order, busy = false, timer, outputUrl;
+let order, busy = false, saving = false, timer, outputUrl, avatarJpeg = null;
 const show = (name, value = true) => $(name).classList.toggle("hidden", !value);
 const error = message => { $("avatarError").textContent = message; show("avatarError", Boolean(message)); };
+const avatarName = () => `PETI-${(order?.petName || "宠物").replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.jpg`;
+function prepareJpeg() {
+  if (avatarJpeg) return Promise.resolve(avatarJpeg);
+  const image = $("avatarImage");
+  return (image.complete ? Promise.resolve() : image.decode().catch(() => {}))
+    .then(() => jpegBlobFromImage(image))
+    .then((blob) => { avatarJpeg = blob; return blob; });
+}
 async function api(path, body) {
   const response = await fetch(path, { method: body ? "POST" : "GET", cache: "no-store", headers: body ? { "content-type": "application/json" } : { "X-PT-Token": access }, body: body ? JSON.stringify({ ...body, token: access }) : undefined, signal: AbortSignal.timeout(30_000) });
   const data = await response.json().catch(() => null);
@@ -41,8 +50,10 @@ async function refresh() {
         outputUrl = URL.createObjectURL(await response.blob());
       }
       $("avatarImage").src = outputUrl; $("downloadAvatar").href = outputUrl;
-      $("downloadAvatar").download = `PETI-${(order.petName || "宠物").replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.png`;
+      $("downloadAvatar").download = avatarName();
       show("avatarOutput"); show("downloadAvatar");
+      // 空闲预编码 JPG，点击保存时能直接打开系统面板。
+      void prepareJpeg().catch(() => {});
     }
     await support();
   } catch (err) { error(err.message || "连接中断，请稍后刷新"); }
@@ -52,6 +63,25 @@ async function refresh() {
   }
 }
 $("refreshAvatar").addEventListener("click", refresh);
+$("downloadAvatar").addEventListener("click", async (event) => {
+  event.preventDefault();
+  if (!outputUrl || saving) return;
+  saving = true;
+  try {
+    const blob = avatarJpeg || await prepareJpeg();
+    const outcome = await shareOrDownload(blob, avatarName(), "毛孩子的万圣节头像");
+    $("avatarMessage").textContent = {
+      shared: "已打开保存面板，选择“存储图像”即可存入相册。",
+      downloaded: "已保存 JPG，可在相册或下载中查看。",
+      wechat: "微信里请长按头像保存到手机。",
+      cancelled: "",
+    }[outcome] || $("avatarMessage").textContent;
+  } catch {
+    $("avatarMessage").textContent = "保存失败，请长按头像保存。";
+  } finally {
+    saving = false;
+  }
+});
 document.addEventListener("visibilitychange", () => { if (document.hidden) clearTimeout(timer); else refresh(); });
 window.addEventListener("pagehide", () => clearTimeout(timer));
 refresh();

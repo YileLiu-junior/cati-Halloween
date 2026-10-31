@@ -2,6 +2,7 @@
 // 照片与头像只从云端按需读取（保留 7 天），不在本机缓存图片。
 import { getHistory, saveGeneration } from "./store.js";
 import { roleThumbUrl } from "./role-assets.js";
+import { jpegBlobFromImage, shareOrDownload } from "./save-image.js";
 
 const ROLE_ID = /^[a-z]{2,16}$/;
 const MAX_PROBES = 8;
@@ -201,6 +202,8 @@ function makeCard(entry, generation) {
     const open = item.dataset.open !== "true";
     item.dataset.open = String(open);
     toggle.setAttribute("aria-expanded", String(open));
+    // 展开后再预编码 JPG，点击保存时能直接打开系统面板。
+    if (open) warmAvatarJpeg(item);
   });
   const detail = document.createElement("div");
   detail.className = "history-detail";
@@ -210,9 +213,21 @@ function makeCard(entry, generation) {
     <div class="history-detail-actions">
       <a class="secondary history-save hidden">保存头像</a>
       <a class="text-button" href="/result?testId=${encodeURIComponent(entry.testId)}">查看这份测评</a>
-    </div>`;
+    </div>
+    <p class="history-save-status" role="status" aria-live="polite"></p>`;
   item.append(toggle, detail);
   return item;
+}
+
+function warmAvatarJpeg(card) {
+  if (card._avatarJpeg || card._avatarJpegRequest) return;
+  const image = card.querySelector('[data-shot="avatar"] img');
+  if (!image) return;
+  card._avatarJpegRequest = (image.complete ? Promise.resolve() : image.decode().catch(() => {}))
+    .then(() => jpegBlobFromImage(image))
+    .then((blob) => { card._avatarJpeg = blob; })
+    .catch(() => {})
+    .finally(() => { card._avatarJpegRequest = null; });
 }
 
 function enableSave(card, url, name) {
@@ -220,6 +235,29 @@ function enableSave(card, url, name) {
   save.href = url;
   save.download = name;
   save.classList.remove("hidden");
+  // 和结果页一致：保存得到 JPG，手机走系统面板存入相册，不打开新页面。
+  save.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (save.dataset.busy === "true") return;
+    save.dataset.busy = "true";
+    const status = card.querySelector(".history-save-status");
+    const image = card.querySelector('[data-shot="avatar"] img');
+    try {
+      const blob = card._avatarJpeg || await jpegBlobFromImage(image);
+      card._avatarJpeg = blob;
+      const outcome = await shareOrDownload(blob, name, "毛孩子的万圣节头像");
+      status.textContent = {
+        shared: "已打开保存面板，选择“存储图像”即可存入相册。",
+        downloaded: "已保存 JPG，可在相册或下载中查看。",
+        wechat: "微信里请长按右侧头像保存到手机。",
+        cancelled: "",
+      }[outcome];
+    } catch {
+      status.textContent = "保存失败，请长按右侧头像保存。";
+    } finally {
+      delete save.dataset.busy;
+    }
+  });
 }
 
 async function loadImages(entry, generation, card) {
@@ -242,7 +280,7 @@ async function loadImages(entry, generation, card) {
   const avatarUrl = setShot(card, "avatar", avatarResult, "生成的万圣节头像");
   if (avatarUrl) {
     const safeName = String(entry.petName || "毛孩子").replace(/[<>:"/\\|?*\x00-\x1f]/g, "");
-    enableSave(card, avatarUrl, `PETI-${safeName}-万圣节头像.png`);
+    enableSave(card, avatarUrl, `PETI-${safeName}-万圣节头像.jpg`);
   }
   if (photoResult.expired || photoResult.error || avatarResult.expired || avatarResult.error) {
     card.querySelector(".history-detail-note").textContent = photoResult.expired || avatarResult.expired
