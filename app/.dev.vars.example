@@ -1,4 +1,9 @@
 ARK_API_KEY=""
 AFDIAN_USER_ID=""
 AFDIAN_API_TOKEN=""
+TEST_CAT_PHOTO_PATH=""
+TEST_DOG_PHOTO_PATH=""
+ORDER_ACCESS_SECRET=""
+AVATAR_ADMIN_SECRET=""
+# 使用独立的 32 字符以上随机值。Pages 与 delivery Worker 的 ORDER_ACCESS_SECRET 必须一致。
 # 商品、型号与付款链接已配置在 wrangler.toml，密钥继续留空。

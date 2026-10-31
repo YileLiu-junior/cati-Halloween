@@ -1,25 +1,32 @@
-name = "peti-halloween-quiz"
+name = "peti-halloween"
 pages_build_output_dir = "public"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
+# 2026-10-30：用户明确要求开放真实支付测试；本次未升级套餐，完整出图仍待实付验收。
+CUSTOM_GENERATION_ENABLED = "true"
+PETI_PUBLIC_ORIGIN = "https://peti-halloween.pages.dev"
 AFDIAN_PLAN_ID = "2315e4b0d2e911f186f652540025c377"
 AFDIAN_SKU_ID = "231df344d2e911f1b46452540025c377"
 AFDIAN_PAY_URL = "https://afdian.com/order/create?product_type=1&plan_id=2315e4b0d2e911f186f652540025c377&sku=%5B%7B%22sku_id%22%3A%22231df344d2e911f1b46452540025c377%22,%22count%22%3A1%7D%5D&viokrz_ex=0"
 
-# MVP 本地与线上同用一类命名空间；线上部署时换成真实 namespace id
+# 当前线上测试环境的真实命名空间。
 [[kv_namespaces]]
 binding = "PETI_KV"
-id = "local-dev-placeholder"
+id = "2892970ba62e4d17b8e57ad5bc4cfbae"
 
-# 上线前创建私有 R2 桶、D1 数据库，并替换 database_id。
+# 已创建的私有图片桶及订单数据库。
 [[r2_buckets]]
 binding = "PETI_IMAGES"
 bucket_name = "peti-custom-images"
 
 [[d1_databases]]
 binding = "PETI_DB"
-database_name = "peti-custom-orders"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "peti-custom-orders-test"
+database_id = "1745501a-3e2a-4bca-a8a7-45c33cf62a37"
 migrations_dir = "migrations"
+
+[[queues.producers]]
+binding = "PETI_DELIVERY_QUEUE"
+queue = "peti-avatar-delivery"

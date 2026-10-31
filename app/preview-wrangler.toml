@@ -1,0 +1,29 @@
+name = "peti-avatar-preview"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+PETI_TEST_MODE = "true"
+CUSTOM_GENERATION_ENABLED = "true"
+PETI_PUBLIC_ORIGIN = "https://peti-avatar-preview.pages.dev"
+AFDIAN_PLAN_ID = "preview-plan"
+AFDIAN_SKU_ID = "preview-sku"
+
+[[kv_namespaces]]
+binding = "PETI_KV"
+id = "2e1de97ed02a4ca197bb7126ae7c7570"
+
+[[r2_buckets]]
+binding = "PETI_IMAGES"
+bucket_name = "peti-avatar-preview-images"
+
+[[d1_databases]]
+binding = "PETI_DB"
+database_name = "peti-avatar-preview-orders"
+database_id = "edba2d88-79dc-4700-a7a9-4d8e00e128e4"
+migrations_dir = "migrations"
+
+[[queues.producers]]
+binding = "PETI_DELIVERY_QUEUE"
+queue = "peti-avatar-preview-delivery"

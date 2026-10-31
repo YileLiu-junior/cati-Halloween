@@ -1,41 +1,19 @@
-import { buildImageRequest, generateImage, removeBackground } from "../lib/generate.js";
-import { fail, guarded, loadOrder, orderPayload, privateJson, readPhoto, requireGeneration } from "../lib/custom.js";
+import { fail, guarded, loadOrder, orderPayload, privateJson, requireGeneration } from "../lib/custom.js";
+import { queueGeneration, refundLocked } from "../lib/delivery-store.js";
 
 export const onRequestPost = ({ request, env }) => guarded(async () => {
   const { token, payId } = await request.json();
-  let order = await loadOrder(env, payId, token);
-  if (["generating", "ready", "uncertain"].includes(order.status)) return privateJson(orderPayload(order));
-  if (order.status !== "unlocked" && !(order.status === "failed" && order.retryable && order.attempts < 2)) fail("NOT_UNLOCKED", "订单尚未确认付款，或已用完生成次数", 402);
-  const result = JSON.parse(order.result_json);
-  await requireGeneration(env, result);
-  const photo = await readPhoto(env, order.photo_id, order.token_hash);
-  const form = await buildImageRequest(env, result, photo);
-  // D1 条件更新只允许一个请求领取调用权，刷新、双击和并发标签不会重复扣次。
-  const claim = await env.PETI_DB.prepare("UPDATE orders SET status = 'generating', attempts = attempts + 1, retryable = 0, error_code = NULL, started_at = ? WHERE id = ? AND attempts < 2 AND (status = 'unlocked' OR (status = 'failed' AND retryable = 1))")
-    .bind(Date.now(), order.id).run();
-  if (!claim.meta.changes) return privateJson(orderPayload(await loadOrder(env, order.id, token)));
-  // shortcut: 本版同步等待生成，需要关页后继续时改用持久队列。
-  let generated = await generateImage(env, form);
-  if (generated.status === "ready") {
-    try {
-      await env.PETI_IMAGES.put(`jobs/${order.id}/source.png`, generated.image, { httpMetadata: { contentType: "image/png" } });
-      generated = await removeBackground(env, generated.image);
-    } catch {
-      generated = { status: "uncertain", retryable: false, errorCode: "STORAGE_UNCERTAIN" };
-    }
+  const order = await loadOrder(env, payId, token);
+  if (refundLocked(order)) fail("REFUND_LOCKED", "退款申请处理中，已暂停新的生成", 409);
+  if (["queued", "generating", "ready", "uncertain"].includes(order.status)) return privateJson(orderPayload(order));
+  if (order.status !== "unlocked" && !(order.status === "failed" && order.retryable && order.attempts < 2)) fail("NOT_UNLOCKED", "订单尚未确认付款，或不能再次生成", 402);
+  await requireGeneration(env, JSON.parse(order.result_json));
+  if (order.status === "failed") {
+    await env.PETI_DB.batch([
+      env.PETI_DB.prepare("UPDATE orders SET status='unlocked',retryable=0 WHERE id=? AND status='failed' AND retryable=1 AND refund_status IN ('none','rejected')").bind(order.id),
+      env.PETI_DB.prepare("UPDATE delivery_jobs SET state='pending',next_at=0 WHERE order_id=? AND state='failed' AND EXISTS (SELECT 1 FROM orders WHERE id=? AND status='unlocked')").bind(order.id, order.id),
+    ]);
   }
-  if (generated.status === "ready") {
-    const key = `jobs/${order.id}/result.${generated.imageExt}`;
-    try {
-      await env.PETI_IMAGES.put(key, generated.image, { httpMetadata: { contentType: generated.imageType } });
-      await env.PETI_DB.prepare("UPDATE orders SET status = 'ready', image_key = ?, error_code = NULL WHERE id = ? AND status IN ('generating', 'uncertain')").bind(key, order.id).run();
-    } catch {
-      await env.PETI_DB.prepare("UPDATE orders SET status = 'uncertain', error_code = 'STORAGE_UNCERTAIN', retryable = 0 WHERE id = ? AND status = 'generating'").bind(order.id).run();
-    }
-  } else {
-    await env.PETI_DB.prepare("UPDATE orders SET status = ?, retryable = ?, error_code = ? WHERE id = ? AND status IN ('generating', 'uncertain')")
-      .bind(generated.status, generated.retryable ? 1 : 0, generated.errorCode, order.id).run();
-  }
-  order = await loadOrder(env, order.id, token);
-  return privateJson(orderPayload(order));
+  await queueGeneration(env, order.id);
+  return privateJson(orderPayload(await loadOrder(env, order.id, token)), 202);
 });

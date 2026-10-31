@@ -11,3 +11,6 @@ holo-card/tools/swap-server.log
 holo-card/tools/verify-report-run.log
 holo-card/tools/verify-kit-run.log
 holo-card/h5-kit/server.log
+
+# 本地生图质量测试案例（大图，不入 git）
+generation-cases/

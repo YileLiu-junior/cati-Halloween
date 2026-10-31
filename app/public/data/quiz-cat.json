@@ -1,16 +1,16 @@
 {
-  "quizVersion": "cat-2026v1",
+  "quizVersion": "cat-2026v2",
   "petType": "cat",
-  "defaultPetName": "我家猫",
+  "defaultPetName": "咪咪",
   "searchPhrase": "喵灵万圣节",
-  "sourceOfTruth": "doc/quiz-design.md §1/§4/§5/§7 + doc/balance-check.py（加分以 py 为准，见收尾报告 Q2o3 备注）",
+  "sourceOfTruth": "doc/quiz-cat-draft.json（2026-10-30 文案改写稿，问答文案以此为准）；本 JSON 为加分与稀有度唯一源，doc/balance-check.py 读 JSON 跑三场景模拟，tools/validate_quiz.py 负责校验",
   "tieBreak": ["chainsaw", "pumpkin", "ghost", "nurse", "pirate", "clown", "franken", "witch", "werewolf", "bat", "vampire", "pharaoh", "gargoyle", "mummy", "zombie", "bride"],
   "characters": [
     {
       "id": "ghost",
       "name": "乖巧内向的小幽灵咪",
       "tagline": "轻手轻脚的乖宝宝",
-      "rarityPct": 6.4,
+      "rarityPct": 2.3,
       "shortLines": ["慢热但超乖，熟了以后是只黏人的小影子", "喵声轻得像自言自语", "礼貌是本咪的默认设置"],
       "quote": "我飘过……你看见我了吗？"
     },
@@ -18,7 +18,7 @@
       "id": "zombie",
       "name": "活蹦乱跳的小僵尸咪",
       "tagline": "电量永远 100% 的快乐憨憨",
-      "rarityPct": 3.5,
+      "rarityPct": 1.8,
       "shortLines": ["一蹦一蹦的快乐源泉，笨拙但热情", "撞翻了东西也像没事猫一样淡定", "能陪你玩到它先没电"],
       "quote": "唔——陪我玩！唔唔！"
     },
@@ -26,7 +26,7 @@
       "id": "chainsaw",
       "name": "恶魔大爆发的电锯咪",
       "tagline": "家里拆迁办主任",
-      "rarityPct": 4.7,
+      "rarityPct": 3.1,
       "shortLines": ["精力多到需要专门的消耗计划", "电线、纸巾、数据线，无物不拆", "凌晨跑酷是每日必修仪式"],
       "quote": "凌晨三点，宜拆家。"
     },
@@ -34,7 +34,7 @@
       "id": "mummy",
       "name": "爱躲藏的木乃伊咪",
       "tagline": "纸箱原住民",
-      "rarityPct": 3.3,
+      "rarityPct": 0.9,
       "shortLines": ["安全感来自「看不见外面」的地方", "家里每个纸箱都被它登记入住过", "出来营业的每一分钟都值得珍惜"],
       "quote": "你看不见我，看不见我。"
     },
@@ -42,7 +42,7 @@
       "id": "nurse",
       "name": "贴心依赖的小管家咪",
       "tagline": "24 小时贴身管家",
-      "rarityPct": 11.4,
+      "rarityPct": 14.8,
       "shortLines": ["你在哪它在哪，工位贴贴户", "你的情绪它总是第一个知道", "呼噜声是全天候背景音"],
       "quote": "主人，抬抬手，管家就到～"
     },
@@ -50,7 +50,7 @@
       "id": "vampire",
       "name": "个性魅力的吸血鬼咪",
       "tagline": "优雅的百年贵族",
-      "rarityPct": 6.8,
+      "rarityPct": 4.4,
       "shortLines": ["高冷是营业人设，破功只在深夜", "什么都要最好的，包括睡觉的地方", "它表达亲近的方式：允许你摸一下"],
       "quote": "本咪已经三百年没这么困了。"
     },
@@ -58,7 +58,7 @@
       "id": "franken",
       "name": "有自己想法的科学怪咪",
       "tagline": "家庭实验狂魔",
-      "rarityPct": 7.6,
+      "rarityPct": 10.8,
       "shortLines": ["家里没有它开不了的柜子", "扫地机、饮水机、新快递都要研究一遍", "聪明到你得藏好所有重要东西"],
       "quote": "这台扫地机，本咪要研究它。"
     },
@@ -66,7 +66,7 @@
       "id": "pirate",
       "name": "行侠仗义的海盗咪",
       "tagline": "全家探险队长",
-      "rarityPct": 5.8,
+      "rarityPct": 11.1,
       "shortLines": ["天塌下来它第一个冲上去看", "高处无禁区，冰箱顶是瞭望台", "护主第一名，生人勿近"],
       "quote": "起锚！目标：厨房罐罐。"
     },
@@ -74,7 +74,7 @@
       "id": "clown",
       "name": "调皮捣蛋的小鬼咪",
       "tagline": "装神弄鬼专业户",
-      "rarityPct": 5.8,
+      "rarityPct": 9.2,
       "shortLines": ["鬼点子一箩筐，翻车也是节目效果", "对着空气炸毛，一秒瞳孔地震", "航空箱前演消失，嚎完还不忘摆拍"],
       "quote": "刚才那个鬼脸，本咪练了三晚。"
     },
@@ -82,7 +82,7 @@
       "id": "bride",
       "name": "月光新娘咪",
       "tagline": "安静的浪漫主义者",
-      "rarityPct": 5.3,
+      "rarityPct": 1.9,
       "shortLines": ["爱美，爱晒着月光打盹", "温柔慢热，心事都写在大眼睛里", "最浪漫的事：睡在你刚晒好的被子上"],
       "quote": "今晚的月光，适合本新娘。"
     },
@@ -90,7 +90,7 @@
       "id": "witch",
       "name": "神秘莫测的女巫咪",
       "tagline": "暗中观察全家的魔法师",
-      "rarityPct": 6.8,
+      "rarityPct": 9.4,
       "shortLines": ["什么都知道，但什么都不说", "总能在你找它之前出现在那里", "偶尔的亲近像施了魔法，格外珍贵"],
       "quote": "今晚满月，适合施法。"
     },
@@ -98,7 +98,7 @@
       "id": "pumpkin",
       "name": "圆滚滚的南瓜咕噜咪",
       "tagline": "干饭是毕生事业",
-      "rarityPct": 12.0,
+      "rarityPct": 8.7,
       "shortLines": ["听见零食袋响动零延迟响应", "圆滚滚是幸福的形状", "饭盆永远是第一现场"],
       "quote": "罐罐呢？说好的罐罐呢？"
     },
@@ -106,7 +106,7 @@
       "id": "werewolf",
       "name": "月圆变身的狼人咪",
       "tagline": "白天乖巧的月夜跑酷者",
-      "rarityPct": 4.9,
+      "rarityPct": 3.6,
       "shortLines": ["白天是文静小孩，半夜原地变身", "满月（每晚）准时嚎一嗓子", "跑酷路线每天不重样"],
       "quote": "嗷呜——（翻译：跑起来！）"
     },
@@ -114,7 +114,7 @@
       "id": "bat",
       "name": "昼伏夜出的蝙蝠咪",
       "tagline": "昼伏夜出的高处住户",
-      "rarityPct": 3.9,
+      "rarityPct": 5.3,
       "shortLines": ["白天挂机，凌晨上线", "衣柜顶、冰箱顶是本咪专座", "用尾巴尖回应你的呼唤"],
       "quote": "白天勿扰，本咪充电中。"
     },
@@ -122,7 +122,7 @@
       "id": "gargoyle",
       "name": "不动如山的贪睡财神咪",
       "tagline": "财气跟着呼噜一起冒",
-      "rarityPct": 9.3,
+      "rarityPct": 8.1,
       "shortLines": ["雷打不动是基本功，天塌先睡饱", "怀里元宝不撒手，梦里都在数钱", "看你干蠢事不吭声，体检被夸乖"],
       "quote": "天塌了？等本咪睡醒再说。"
     },
@@ -130,7 +130,7 @@
       "id": "pharaoh",
       "name": "傲娇的法老王咪",
       "tagline": "人类只是它的铲屎官",
-      "rarityPct": 2.7,
+      "rarityPct": 4.8,
       "shortLines": ["主子气质拉满，赐摸要看心情", "睡遍全家风水宝地", "偶尔翻个肚皮，那是天恩"],
       "quote": "仆人，你的等级可以摸本王了。"
     }
@@ -139,12 +139,12 @@
     {
       "id": "q1",
       "scene": "下班开门",
-      "text": "钥匙刚响，门一开，你家猫的第一反应是？",
+      "text": "钥匙刚响，结束一天疲惫刚回家打开门，你家猫的第一反应是？",
       "options": [
-        { "id": "q1a", "text": "门还没开完就冲过来，蹭腿绕圈还带颤音，像在说「你怎么才回来」", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1, "zombie": 1 } },
-        { "id": "q1b", "text": "人影都没有，十分钟后才从床底探出半张脸，假装刚睡醒", "axis": "B", "delta": -3, "points": { "mummy": 2, "ghost": 1 } },
-        { "id": "q1c", "text": "抬眼瞥你一下，「哦，回来了」，尾巴尖一甩，回窝继续躺", "axis": "A", "delta": -3, "points": { "vampire": 2, "pharaoh": 1 } },
-        { "id": "q1d", "text": "四脚朝天睡成一滩，开门声、换鞋声全当白噪音", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "pharaoh": 1, "bat": 1 } }
+        { "id": "q1a", "text": "门还没开完就从门缝里挤出来了，如果不提前拦住，撒腿就跑没影了，有一颗探险的心", "axis": "E", "delta": 3, "points": { "pirate": 2, "zombie": 1 } },
+        { "id": "q1b", "text": "还没开门就能听见它大声叫着“人！我等你好久了！你终于回来了！”，进门就来求摸摸", "axis": "A", "delta": 3, "points": { "nurse": 2, "zombie": 1 } },
+        { "id": "q1c", "text": "碰上心情好可能会走出来迎接一下，大部分时候都是稳稳睡着等你去找它呢", "axis": "A", "delta": -3, "points": { "vampire": 3, "pharaoh": 1 } },
+        { "id": "q1d", "text": "会站在不远不近的地方静静等你，用眼神关心你，但是很少会特别热情的来迎接你蹭蹭你", "axis": "A", "delta": -3, "points": { "witch": 2, "bat": 1 } }
       ]
     },
     {
@@ -152,10 +152,10 @@
       "scene": "开饭时刻",
       "text": "猫粮落碗、罐头一开的那一秒——",
       "options": [
-        { "id": "q2a", "text": "听见塑料袋就瞬移，吃完把碗舔得反光，再抬头瞪你：「就这？」", "axis": "F", "delta": 3, "points": { "pumpkin": 3 } },
-        { "id": "q2b", "text": "闻一下就走，「今天的菜单配不上本咪」，留你独自收碗", "axis": "F", "delta": -3, "points": { "pharaoh": 2, "vampire": 1, "witch": 1 } },
-        { "id": "q2c", "text": "必须你手喂，边吃边偷偷蹭你手心，吃出按摩服务的感觉", "axis": "A", "delta": 3, "points": { "nurse": 2, "ghost": 1 } },
-        { "id": "q2d", "text": "吃两口就去玩，玩累了回来再吃两口，全天候自助餐模式", "axis": "E", "delta": 3, "points": { "zombie": 2, "clown": 1 } }
+        { "id": "q2a", "text": "不管猫粮还是零食，一点动静就瞬移出现，把碗舔得反光，是从不让人担心吃饭的乖宝宝", "axis": "F", "delta": 3, "points": { "pumpkin": 4 } },
+        { "id": "q2b", "text": "对猫粮反应一般，但只要开零食就会立刻出现，猫条猫罐头，对食物有高要求的小美食家", "axis": "F", "delta": -3, "points": { "pharaoh": 2, "vampire": 1 } },
+        { "id": "q2c", "text": "对吃的会根据饿不饿有不同反应，特别的是，对你亲手喂的食物好像容忍接受度就更高一些", "axis": "A", "delta": 3, "points": { "nurse": 2, "ghost": 1 } },
+        { "id": "q2d", "text": "吃两口就去玩，玩累了回来再吃两口，超级小鸟胃，全天候自助也不用担心会吃胖", "axis": "E", "delta": 3, "points": { "zombie": 2, "clown": 1 } }
       ]
     },
     {
@@ -163,32 +163,32 @@
       "scene": "半夜的你家",
       "text": "凌晨三点的客厅，正在上演哪一出？",
       "options": [
-        { "id": "q3a", "text": "客厅→卧室→沙发折返跑，自带 BGM，地板咚咚咚", "axis": "E", "delta": 3, "points": { "werewolf": 3, "zombie": 1, "chainsaw": 1 } },
-        { "id": "q3b", "text": "月光下贴着你睡成一团，压住你的头发也舍不得挪窝", "axis": "A", "delta": 3, "points": { "bride": 2, "nurse": 1 } },
-        { "id": "q3c", "text": "你起夜上厕所，黑暗里一双眼睛亮得像两颗小灯泡，一眨不眨", "axis": "C", "delta": 3, "points": { "witch": 3, "franken": 1 } },
-        { "id": "q3d", "text": "「嗖」地一个黑影从柜顶俯冲下来，落地还给你一个不屑的眼神", "axis": "B", "delta": 3, "points": { "bat": 2, "pirate": 1, "clown": 1 } }
+        { "id": "q3a", "text": "晚上总爱逮虾户，开心的时候还喜欢嚎几嗓子，半夜总会把你吵醒那么一两回", "axis": "E", "delta": 3, "points": { "werewolf": 3, "zombie": 1, "chainsaw": 1 } },
+        { "id": "q3b", "text": "你开出极品猫猫！晚上总是喜欢在你身边甚至怀里睡觉，不管你什么时候睁眼它总在身边", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1 } },
+        { "id": "q3c", "text": "夜晚的小守护神，你几点睡它就在身旁陪到几点，而且只要你起夜行动，它总会第一时间出现", "axis": "C", "delta": 3, "points": { "witch": 4, "franken": 1 } },
+        { "id": "q3d", "text": "有它固定的小窝，看你睡了它也去睡了，或是自己玩去了？你根本不知道，因为看不到它在哪啊", "axis": "A", "delta": -3, "points": { "bat": 3, "mummy": 1 } }
       ]
     },
     {
       "id": "q4",
       "scene": "新东西出现",
-      "text": "快递箱、新玩具、陌生客人——你家猫先管哪个？",
+      "text": "甚至是陌生的客人来了……你家猫遇到会是什么反应？",
       "options": [
-        { "id": "q4a", "text": "快递箱还没拆，它已经钻进去安家，研究起瓦楞纸的味道", "axis": "C", "delta": 3, "points": { "mummy": 2, "franken": 1 } },
-        { "id": "q4b", "text": "陌生人一进门就原地隐身，三小时后才从沙发底慢慢探出来", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q4c", "text": "逗猫棒甩到手臂酸，它还蹲着喘气准备下一轮，你已先投降", "axis": "E", "delta": 3, "points": { "chainsaw": 2, "zombie": 1, "pirate": 1 } },
-        { "id": "q4d", "text": "新东西？眼皮都懒得抬，只赏你一声「喵」，就当验收过了", "axis": "C", "delta": -3, "points": { "vampire": 2, "gargoyle": 1 } }
+        { "id": "q4a", "text": "超级大社牛！主动出击，探索一切新事物，陌生人也敢上前大胆社交！", "axis": "B", "delta": 3, "points": { "pirate": 2, "franken": 1 } },
+        { "id": "q4b", "text": "陌生人一进门三秒它就消失，直到三小时后才从沙发底慢慢探出来", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
+        { "id": "q4c", "text": "怕人，但不是活物的东西，它都很好奇，总是闻一闻疯狂检查，新玩具也总是很捧场", "axis": "C", "delta": 3, "points": { "franken": 2, "chainsaw": 1 } },
+        { "id": "q4d", "text": "对于新出现的东西总是淡淡的，你精心给它挑选的小礼物它也往往闻一闻从旁路过", "axis": "C", "delta": -3, "points": { "vampire": 2, "gargoyle": 1 } }
       ]
     },
     {
       "id": "q5",
       "scene": "像人时刻",
-      "text": "它最像「一个小人类」的时刻是——",
+      "text": "有时候，你会忍不住觉得它真的像人一样……",
       "options": [
-        { "id": "q5a", "text": "作息比上班族还准：几点催饭、几点巡屋、几点蹲窗台骂鸟", "axis": "C", "delta": 3, "points": { "franken": 2, "pharaoh": 1, "witch": 1 } },
-        { "id": "q5b", "text": "你一掉眼泪，它就默默过来把脑袋塞进你手心，什么也不说", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1 } },
-        { "id": "q5c", "text": "看不出章法：上一秒舔毛，下一秒原地弹射，撞翻垃圾桶", "axis": "E", "delta": 3, "points": { "werewolf": 2, "clown": 1, "chainsaw": 1 } },
-        { "id": "q5d", "text": "面无表情看你犯蠢，眼神像在说「人类，我很难评」", "axis": "D", "delta": -3, "points": { "gargoyle": 2, "vampire": 1 } }
+        { "id": "q5a", "text": "它就是你亲自生下的宝宝！它的一颦一笑，一静一动，都和你一模一样，一看就是亲生的！", "axis": "C", "delta": 3, "points": { "franken": 2, "clown": 1 } },
+        { "id": "q5b", "text": "虽然不会整天黏在你身上，但你一掉眼泪，它就默默过来陪你，你知道这是它对你关心的方式", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 2 } },
+        { "id": "q5c", "text": "完全觉得它像人啊，它就是个让人捉摸不透的神一般的存在！总是神秘的出现，神秘的消失", "axis": "D", "delta": 3, "points": { "witch": 2, "clown": 1 } },
+        { "id": "q5d", "text": "不觉得它像人，是野性十足的小猫咪，贪玩，贪吃，贪睡，就是不肯亲人", "axis": "A", "delta": -3, "points": { "werewolf": 2, "gargoyle": 1 } }
       ]
     },
     {
@@ -196,21 +196,21 @@
       "scene": "摸摸敏感度",
       "text": "伸手 rua 它的那一刻——",
       "options": [
-        { "id": "q6a", "text": "呼噜声轰隆启动，整只猫化成液体，摊在你腿上不肯起来", "axis": "A", "delta": 3, "points": { "nurse": 2, "pumpkin": 1 } },
-        { "id": "q6b", "text": "摸两下就起身走开，过会儿又用尾巴尖把你勾回来，欲拒还迎", "axis": "D", "delta": 3, "points": { "bride": 2, "ghost": 1 } },
-        { "id": "q6c", "text": "摸错一下就扭头「哈——」，尾巴拍地板警告，雷区遍布全身", "axis": "B", "delta": -3, "points": { "mummy": 2, "ghost": 1 } },
-        { "id": "q6d", "text": "摸不摸随便，闭眼装睡，顶多甩一下尾巴尖当回礼", "axis": "A", "delta": -3, "points": { "vampire": 2, "pharaoh": 1, "bat": 1 } }
+        { "id": "q6a", "text": "这猫怎么一直在响啊！非常喜欢摸摸，手刚抬起来猫头就蹭上来了，有的一摸就呼噜呼噜~", "axis": "A", "delta": 3, "points": { "nurse": 2, "gargoyle": 1 } },
+        { "id": "q6b", "text": "主子心情好，就会来你身边蹭一蹭让摸一摸，但大部分时候只能靠你去强扭这只“小瓜”", "axis": "D", "delta": 3, "points": { "pharaoh": 3, "vampire": 1 } },
+        { "id": "q6c", "text": "摸错一下就扭头「哈——」，一抱就挣扎，尾巴拍地板警告，雷区遍布全身", "axis": "B", "delta": -3, "points": { "mummy": 3, "ghost": 1 } },
+        { "id": "q6d", "text": "性格超级好，任人揉捏，摸不摸随便，抓起手臂感觉骨头都是软的，偶尔才会甩一下尾巴尖表达不满", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pumpkin": 1 } }
       ]
     },
     {
       "id": "q7",
       "scene": "玩耍风格",
-      "text": "逗猫棒一晃，你家猫——",
+      "text": "逗猫玩具一出现，你家猫——",
       "options": [
-        { "id": "q7a", "text": "瞬间进入战斗模式：飞扑、抱咬、锁喉，一套连招把你累倒", "axis": "E", "delta": 3, "points": { "chainsaw": 2, "zombie": 1, "werewolf": 1 } },
-        { "id": "q7b", "text": "先看有没有零食，没有就当场罢工，有就直接化身寻宝队长", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "pirate": 1 } },
-        { "id": "q7c", "text": "你玩你的，它睡它的，偶尔睁眼瞟一下：「人类，真无聊」", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
-        { "id": "q7d", "text": "玩到一半突然定格，死死盯着空气里的某个东西，瞳孔放大", "axis": "D", "delta": 3, "points": { "clown": 2, "witch": 1 } }
+        { "id": "q7a", "text": "瞬间进入战斗模式：飞扑、抱咬、锁喉，既是体操冠军又是运动达人，能玩特别久", "axis": "E", "delta": 3, "points": { "chainsaw": 3, "zombie": 1, "werewolf": 1 } },
+        { "id": "q7b", "text": "先看有没有零食，没有就当场罢工，一只超级懒的大馋猪咪来的", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "gargoyle": 1 } },
+        { "id": "q7c", "text": "你玩你的，它睡它的，好像你俩玩耍的神经总对不上信号", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
+        { "id": "q7d", "text": "孩子打小就容易开小差，玩到一半突然定格想别的事去了，或是被其它东西吸引走开", "axis": "C", "delta": 3, "points": { "clown": 2, "franken": 1 } }
       ]
     },
     {
@@ -218,10 +218,10 @@
       "scene": "抢地盘",
       "text": "你家的日常「领土纠纷」长这样——",
       "options": [
-        { "id": "q8a", "text": "你刚起身，椅子立刻易主；纸箱是它的宫殿，你是它的仆人", "axis": "B", "delta": 3, "points": { "pharaoh": 2, "pirate": 1 } },
-        { "id": "q8b", "text": "眼睛黏在你碗里的肉上，人饭永远比猫饭香，哪怕刚吃完", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "werewolf": 1 } },
-        { "id": "q8c", "text": "你加班它踩键盘，认真帮你删掉两行报告，再邀功地叫一声", "axis": "C", "delta": 3, "points": { "franken": 2, "witch": 1 } },
-        { "id": "q8d", "text": "不靠近也不远离，隔着一步远跟你巡视全屋，像在值夜班", "axis": "A", "delta": -3, "points": { "bat": 2, "vampire": 1 } }
+        { "id": "q8a", "text": "总是喜欢出现在你周围，你玩电脑它放技能，你认真工作它就负责干扰", "axis": "A", "delta": 3, "points": { "franken": 2, "nurse": 1 } },
+        { "id": "q8b", "text": "你刚起身，椅子立刻易主；非常有领地意识，对于入侵它领地的人或咪它都会表露出不爽", "axis": "B", "delta": 3, "points": { "pharaoh": 2, "werewolf": 1 } },
+        { "id": "q8c", "text": "猫真的有领地意识吗？从不在固定的位置出现，不会特别对那个地方情有独钟，或者说，它可能更喜欢去外面", "axis": "C", "delta": 3, "points": { "pirate": 2, "witch": 1 } },
+        { "id": "q8d", "text": "不靠近也不远离，总在离你不远的位置，你换房间它也挪窝，隔着一步远跟你巡视全屋", "axis": "A", "delta": -3, "points": { "bat": 2, "vampire": 1 } }
       ]
     },
     {
@@ -229,10 +229,10 @@
       "scene": "外出体检",
       "text": "带它出门体检 / 洗澡时——",
       "options": [
-        { "id": "q9a", "text": "航空箱前上演消失术，塞进去后一路嚎出一整部连续剧", "axis": "D", "delta": 3, "points": { "clown": 2, "bride": 1 } },
-        { "id": "q9b", "text": "到医院全程淡定趴着，医生都忍不住夸一句「这也太乖了」", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pirate": 1 } },
-        { "id": "q9c", "text": "全程发抖装隐形，恨不得把自己嵌进航空箱最底下", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q9d", "text": "一到新地方就开始巡逻，把每个高点都占一遍才安心", "axis": "C", "delta": 3, "points": { "pirate": 3, "franken": 1 } }
+        { "id": "q9a", "text": "航空箱前上演消失术，塞进去后一路嚎出一整部连续剧，感觉出去一趟嗓子都要哭哑了", "axis": "D", "delta": 3, "points": { "clown": 3, "bride": 1 } },
+        { "id": "q9b", "text": "到医院全程淡定趴着，医生都忍不住夸一句「这也太乖了」，是见过大风大浪的淡咪", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pirate": 1 } },
+        { "id": "q9c", "text": "全程发抖装隐形，恨不得把自己嵌进航空箱最底下，眼睛一直在找哪里能躲藏", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
+        { "id": "q9d", "text": "一到新地方就开始巡逻，跟到了自己家一样一点不怕生，人也好猫也好，见了面都是朋友", "axis": "B", "delta": 3, "points": { "pirate": 3, "franken": 1 } }
       ]
     },
     {
@@ -240,10 +240,10 @@
       "scene": "镜头感",
       "text": "你一举起手机，它——",
       "options": [
-        { "id": "q10a", "text": "镜头一对就坐好，还知道歪头找角度，天生平面模特", "axis": "D", "delta": 3, "points": { "bride": 2, "clown": 1 } },
-        { "id": "q10b", "text": "拍一百张，九十九张是糊的，剩下一张是它的屁股", "axis": "E", "delta": 3, "points": { "zombie": 2, "chainsaw": 1 } },
-        { "id": "q10c", "text": "一看见镜头就扭头，仿佛被拍会掉电量，镜头感为负数", "axis": "D", "delta": -3, "points": { "gargoyle": 1, "bat": 1, "witch": 1 } },
-        { "id": "q10d", "text": "凑过来闻镜头，再一巴掌拍下去，拍摄到此结束", "axis": "C", "delta": 3, "points": { "franken": 2, "witch": 1 } }
+        { "id": "q10a", "text": "镜头一对就坐好，还知道歪头找角度，天生平面模特，手机相册翻出来全是美照", "axis": "D", "delta": 3, "points": { "bride": 3, "clown": 1 } },
+        { "id": "q10b", "text": "超级动感模特！拍一百张，九十九张是糊的，剩下一张是它的屁股，镜头感为负数，但动感满分", "axis": "E", "delta": 3, "points": { "zombie": 2, "chainsaw": 1 } },
+        { "id": "q10c", "text": "总是在睡觉，家里的睡神，相册打开80%全是闭着眼睛呼呼大睡的照片，各种睡姿集锦", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
+        { "id": "q10d", "text": "对镜头特别好奇，镜头打开就会凑过来，但也因此容易被拍到一些尴尬的瞬间", "axis": "C", "delta": 3, "points": { "franken": 2, "clown": 1 } }
       ]
     }
   ]

@@ -4,12 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node tools/sync-generation-prompts.mjs",
     "dev": "wrangler pages dev --port 8788",
+    "predeploy": "node tools/sync-generation-prompts.mjs",
     "deploy": "wrangler pages deploy",
     "validate": "python tools/validate_quiz.py",
     "test": "playwright test",
-    "test:api": "node --test tools/custom-api.test.mjs",
-    "test:worker": "node --test tools/transparent-worker.test.mjs",
+    "test:api": "node --test tools/custom-api.test.mjs tools/delivery.test.mjs tools/test-generation-cli.test.mjs",
+    "test:generation": "node tools/test-generation.mjs",
     "test:headed": "playwright test --headed"
   },
   "devDependencies": {

@@ -32,7 +32,7 @@ $("historySection").classList.toggle("hidden", history.length === 0);
 for (const entry of history) {
   const link = document.createElement("a");
   link.className = "history-item";
-  link.href = `/result.html?testId=${encodeURIComponent(entry.testId)}`;
+  link.href = `/result?testId=${encodeURIComponent(entry.testId)}`;
   const label = document.createElement("span");
   const name = document.createElement("strong");
   name.textContent = entry.petName;
@@ -101,7 +101,7 @@ async function startQuiz() {
       result: null,
     });
     track("quiz_start", { entry: getState().source || "direct" });
-    location.href = "/quiz.html";
+    location.href = "/quiz";
   } catch {
     showNameError("加载失败，请重试");
     setLoading(false);
@@ -112,7 +112,7 @@ startBtn.addEventListener("click", startQuiz);
 // 完成结果直接列在首页；继续入口只用于未完成的测试。
 $("continueBtn").addEventListener("click", () => {
   const s = getState();
-  if (s.testId && s.order && !s.result) location.href = "/quiz.html";
+  if (s.testId && s.order && !s.result) location.href = "/quiz";
   else {
     const el = $("globalError");
     el.textContent = "还没有进行中的测试，先开始一个吧";

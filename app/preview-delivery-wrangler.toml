@@ -1,0 +1,41 @@
+name = "peti-avatar-preview-worker"
+main = "delivery-worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+PETI_TEST_MODE = "true"
+DELIVERY_ENABLED = "false"
+CUSTOM_GENERATION_ENABLED = "true"
+PETI_PUBLIC_ORIGIN = "https://peti-avatar-preview.pages.dev"
+AFDIAN_PLAN_ID = "preview-plan"
+AFDIAN_SKU_ID = "preview-sku"
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "PETI_DB"
+database_name = "peti-avatar-preview-orders"
+database_id = "edba2d88-79dc-4700-a7a9-4d8e00e128e4"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "PETI_IMAGES"
+bucket_name = "peti-avatar-preview-images"
+
+[[queues.producers]]
+binding = "PETI_DELIVERY_QUEUE"
+queue = "peti-avatar-preview-delivery"
+
+[[queues.consumers]]
+queue = "peti-avatar-preview-delivery"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 2
+max_retries = 3
+dead_letter_queue = "peti-avatar-preview-dlq"

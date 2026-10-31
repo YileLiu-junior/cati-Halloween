@@ -1,249 +1,691 @@
 {
-  "quizVersion": "dog-2026v1",
+  "quizVersion": "dog-2026v2",
   "petType": "dog",
   "defaultPetName": "我家狗",
   "searchPhrase": "喵灵万圣节",
-  "sourceOfTruth": "doc/quiz-design-dog.md §1/§2（文案）+ doc/balance-check.py（加分与猫版逐项相同，以 py 为准）",
-  "tieBreak": ["chainsaw", "pumpkin", "ghost", "nurse", "pirate", "clown", "franken", "witch", "werewolf", "bat", "vampire", "pharaoh", "gargoyle", "mummy", "zombie", "bride"],
+  "sourceOfTruth": "doc/quiz-design-dog.md §0（猫狗同构承诺）；文案 2026-10-30 由 DeepSeek 按猫版语义槽位契约另写（提示词存档 doc/prompts/dog-quiz-rewrite-prompt.txt）；本 JSON 为加分与稀有度唯一源，doc/balance-check.py 读 JSON 跑模拟",
+  "tieBreak": [
+    "chainsaw",
+    "pumpkin",
+    "ghost",
+    "nurse",
+    "pirate",
+    "clown",
+    "franken",
+    "witch",
+    "werewolf",
+    "bat",
+    "vampire",
+    "pharaoh",
+    "gargoyle",
+    "mummy",
+    "zombie",
+    "bride"
+  ],
   "characters": [
     {
       "id": "ghost",
       "name": "乖巧内向的小幽灵汪",
       "tagline": "轻手轻脚的乖宝宝",
-      "rarityPct": 6.4,
-      "shortLines": ["慢热但超乖，熟了以后是只黏人的小影子", "呜咽声轻轻的像自言自语", "礼貌是本汪的默认设置"],
+      "rarityPct": 2.3,
+      "shortLines": [
+        "慢热但超乖，熟了以后是只黏人的小影子",
+        "呜咽声轻轻的像自言自语",
+        "礼貌是本汪的默认设置"
+      ],
       "quote": "我飘过……你看见我了吗？"
     },
     {
       "id": "zombie",
       "name": "活蹦乱跳的小僵尸汪",
       "tagline": "电量永远 100% 的快乐憨憨",
-      "rarityPct": 3.5,
-      "shortLines": ["一蹦一蹦的快乐源泉，笨拙但热情", "撞翻了东西也像没事狗一样淡定", "能陪你玩到它先没电"],
+      "rarityPct": 1.8,
+      "shortLines": [
+        "一蹦一蹦的快乐源泉，笨拙但热情",
+        "撞翻了东西也像没事狗一样淡定",
+        "能陪你玩到它先没电"
+      ],
       "quote": "唔——陪我玩！汪！"
     },
     {
       "id": "chainsaw",
       "name": "恶魔大爆发的电锯汪",
       "tagline": "家里拆迁办主任",
-      "rarityPct": 4.7,
-      "shortLines": ["精力多到需要专门的消耗计划", "拖鞋、纸巾、沙发角，无物不拆", "拆家是每日必修仪式"],
+      "rarityPct": 3.1,
+      "shortLines": [
+        "精力多到需要专门的消耗计划",
+        "拖鞋、纸巾、沙发角，无物不拆",
+        "拆家是每日必修仪式"
+      ],
       "quote": "凌晨三点，宜拆家。"
     },
     {
       "id": "mummy",
       "name": "爱躲藏的木乃伊汪",
       "tagline": "沙发底下原住民",
-      "rarityPct": 3.3,
-      "shortLines": ["安全感来自沙发底下和你身后", "家里每个角落它都躲过", "出来营业的每一分钟都值得珍惜"],
+      "rarityPct": 0.9,
+      "shortLines": [
+        "安全感来自沙发底下和你身后",
+        "家里每个角落它都躲过",
+        "出来营业的每一分钟都值得珍惜"
+      ],
       "quote": "你看不见我，看不见我。"
     },
     {
       "id": "nurse",
       "name": "贴心依赖的小管家汪",
       "tagline": "24 小时贴身管家",
-      "rarityPct": 11.4,
-      "shortLines": ["你在哪它在哪，跟屁虫编制", "你的情绪它总是第一个知道", "尾巴摇起来是全天候背景音"],
+      "rarityPct": 14.8,
+      "shortLines": [
+        "你在哪它在哪，跟屁虫编制",
+        "你的情绪它总是第一个知道",
+        "尾巴摇起来是全天候背景音"
+      ],
       "quote": "主人，抬抬手，管家就到～"
     },
     {
       "id": "vampire",
       "name": "个性魅力的吸血鬼汪",
       "tagline": "优雅的百年贵族",
-      "rarityPct": 6.8,
-      "shortLines": ["高冷是营业人设，破功只在深夜", "什么都要最好的，包括睡觉的地方", "它表达亲近的方式：允许你摸一下"],
+      "rarityPct": 4.4,
+      "shortLines": [
+        "高冷是营业人设，破功只在深夜",
+        "什么都要最好的，包括睡觉的地方",
+        "它表达亲近的方式：允许你摸一下"
+      ],
       "quote": "本汪已经三百年没这么困了。"
     },
     {
       "id": "franken",
       "name": "有自己想法的科学怪汪",
       "tagline": "家庭实验狂魔",
-      "rarityPct": 7.6,
-      "shortLines": ["家里没有它研究不了的物件", "新快递必须第一个检查", "聪明到你得藏好零食柜钥匙"],
+      "rarityPct": 10.8,
+      "shortLines": [
+        "家里没有它研究不了的物件",
+        "新快递必须第一个检查",
+        "聪明到你得藏好零食柜钥匙"
+      ],
       "quote": "这台扫地机，本汪要研究它。"
     },
     {
       "id": "pirate",
       "name": "行侠仗义的海盗汪",
       "tagline": "全家探险队长",
-      "rarityPct": 5.8,
-      "shortLines": ["天塌下来它第一个冲上去看", "外出无禁区，草坪是它的疆场", "护主第一名，生人勿近"],
+      "rarityPct": 11.1,
+      "shortLines": [
+        "天塌下来它第一个冲上去看",
+        "外出无禁区，草坪是它的疆场",
+        "护主第一名，生人勿近"
+      ],
       "quote": "起锚！目标：楼下草坪。"
     },
     {
       "id": "clown",
       "name": "调皮捣蛋的小鬼汪",
       "tagline": "装神弄鬼专业户",
-      "rarityPct": 5.8,
-      "shortLines": ["鬼点子一箩筐，翻车也是节目效果", "门口快递一到，它先演一段空袭警报", "出门自带戏瘾，镜头前歪头找角度"],
+      "rarityPct": 9.2,
+      "shortLines": [
+        "鬼点子一箩筐，翻车也是节目效果",
+        "门口快递一到，它先演一段空袭警报",
+        "出门自带戏瘾，镜头前歪头找角度"
+      ],
       "quote": "刚才那个鬼脸，本汪练了三晚。"
     },
     {
       "id": "bride",
       "name": "月光新娘汪",
       "tagline": "安静的浪漫主义者",
-      "rarityPct": 5.3,
-      "shortLines": ["爱美，爱晒着夕阳打盹", "温柔慢热，心事都写在大眼睛里", "最浪漫的事：睡在你刚晒好的被子上"],
+      "rarityPct": 1.9,
+      "shortLines": [
+        "爱美，爱晒着夕阳打盹",
+        "温柔慢热，心事都写在大眼睛里",
+        "最浪漫的事：睡在你刚晒好的被子上"
+      ],
       "quote": "今晚的月光，适合本新娘。"
     },
     {
       "id": "witch",
       "name": "神秘莫测的女巫汪",
       "tagline": "暗中观察全家的魔法师",
-      "rarityPct": 6.8,
-      "shortLines": ["什么都知道，但什么都不说", "总能在你找它之前出现在那里", "偶尔的亲近像施了魔法，格外珍贵"],
+      "rarityPct": 9.4,
+      "shortLines": [
+        "什么都知道，但什么都不说",
+        "总能在你找它之前出现在那里",
+        "偶尔的亲近像施了魔法，格外珍贵"
+      ],
       "quote": "今晚满月，适合施法。"
     },
     {
       "id": "pumpkin",
       "name": "圆滚滚的南瓜咕噜汪",
       "tagline": "干饭是毕生事业",
-      "rarityPct": 12.0,
-      "shortLines": ["听见狗粮袋响动零延迟响应", "圆滚滚是幸福的形状", "饭盆永远是第一现场"],
+      "rarityPct": 8.7,
+      "shortLines": [
+        "听见狗粮袋响动零延迟响应",
+        "圆滚滚是幸福的形状",
+        "饭盆永远是第一现场"
+      ],
       "quote": "罐罐呢？说好的罐罐呢？"
     },
     {
       "id": "werewolf",
       "name": "月圆变身的狼人汪",
       "tagline": "白天乖巧的月夜警戒者",
-      "rarityPct": 4.9,
-      "shortLines": ["白天是文静小孩，听到动静原地变身", "快递员和门铃是它的满月", "看家巡逻路线每天不重样"],
+      "rarityPct": 3.6,
+      "shortLines": [
+        "白天是文静小孩，听到动静原地变身",
+        "快递员和门铃是它的满月",
+        "看家巡逻路线每天不重样"
+      ],
       "quote": "嗷呜——（翻译：警戒起来！）"
     },
     {
       "id": "bat",
       "name": "昼伏夜出的蝙蝠汪",
       "tagline": "昼伏夜出的高处住户",
-      "rarityPct": 3.9,
-      "shortLines": ["白天挂机，夜里上岗", "沙发缝、床底是本汪专座", "用尾巴尖回应你的呼唤"],
+      "rarityPct": 5.3,
+      "shortLines": [
+        "白天挂机，夜里上岗",
+        "沙发缝、床底是本汪专座",
+        "用尾巴尖回应你的呼唤"
+      ],
       "quote": "白天勿扰，本汪充电中。"
     },
     {
       "id": "gargoyle",
       "name": "不动如山的贪睡财神汪",
       "tagline": "财气跟着鼾声一起冒",
-      "rarityPct": 9.3,
-      "shortLines": ["雷打不动是基本功，天塌先睡饱", "怀里元宝不撒手，梦里都在数钱", "别的狗冲它狂叫，它稳得像在遛你"],
+      "rarityPct": 8.1,
+      "shortLines": [
+        "雷打不动是基本功，天塌先睡饱",
+        "怀里元宝不撒手，梦里都在数钱",
+        "别的狗冲它狂叫，它稳得像在遛你"
+      ],
       "quote": "天塌了？等本汪睡醒再说。"
     },
     {
       "id": "pharaoh",
       "name": "傲娇的法老王汪",
       "tagline": "人类只是它的铲屎官",
-      "rarityPct": 2.7,
-      "shortLines": ["主子气质拉满，赐摸要看心情", "睡遍全家风水宝地", "偶尔翻个肚皮，那是天恩"],
+      "rarityPct": 4.8,
+      "shortLines": [
+        "主子气质拉满，赐摸要看心情",
+        "睡遍全家风水宝地",
+        "偶尔翻个肚皮，那是天恩"
+      ],
       "quote": "仆人，你的等级可以摸本王了。"
     }
   ],
   "questions": [
     {
       "id": "q1",
-      "scene": "下班开门",
-      "text": "钥匙刚响，门一开，你家狗的第一反应是？",
+      "scene": "下班回家，钥匙插进锁孔的那一刻",
+      "text": "钥匙刚插进锁孔，你家狗的反应是——",
       "options": [
-        { "id": "q1a", "text": "门还没开完就在门后蹦跳，尾巴摇成螺旋桨，还叼来一只拖鞋献宝", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1, "zombie": 1 } },
-        { "id": "q1b", "text": "门外一有脚步声就钻沙发底，等你喊了三遍名字才探出头", "axis": "B", "delta": -3, "points": { "mummy": 2, "ghost": 1 } },
-        { "id": "q1c", "text": "抬眼瞟你一下，「哦，回来了」，尾巴拍两下地板，继续趴着", "axis": "A", "delta": -3, "points": { "vampire": 2, "pharaoh": 1 } },
-        { "id": "q1d", "text": "四脚朝天睡得雷打不动，你都换完鞋、洗好手了它还没醒", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "pharaoh": 1, "bat": 1 } }
+        {
+          "id": "q1a",
+          "text": "门缝刚开一条缝它侧身就挤出去，牵引绳都拦不住，满脑子都是小区探险大计",
+          "axis": "E",
+          "delta": 3,
+          "points": {
+            "pirate": 2,
+            "zombie": 1
+          }
+        },
+        {
+          "id": "q1b",
+          "text": "门还没开完就听见里面呜咽加挠门，人一进来直接扑上来，脑袋往手心里怼",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "nurse": 2,
+            "zombie": 1
+          }
+        },
+        {
+          "id": "q1c",
+          "text": "今天心情不错，抬了下眼皮摇两下尾巴算是接过你了，剩下的等你主动去请安",
+          "axis": "A",
+          "delta": -3,
+          "points": {
+            "vampire": 3,
+            "pharaoh": 1
+          }
+        },
+        {
+          "id": "q1d",
+          "text": "就蹲在客厅那头看着你换鞋，眼神很关切，但绝不扑上来，像在等你先开口",
+          "axis": "A",
+          "delta": -3,
+          "points": {
+            "witch": 2,
+            "bat": 1
+          }
+        }
       ]
     },
     {
       "id": "q2",
-      "scene": "开饭时刻",
-      "text": "狗粮落碗、零食袋一响的那一秒——",
+      "scene": "开饭那一刻",
+      "text": "狗粮落碗的那一声响，你家狗——",
       "options": [
-        { "id": "q2a", "text": "听见袋子响就瞬移，五秒光盘，转头盯着你的嘴：「你嘴里有我的份吗」", "axis": "F", "delta": 3, "points": { "pumpkin": 3 } },
-        { "id": "q2b", "text": "低头闻一下就走，「本汪今天心情不适合吃这个」，留你独自收碗", "axis": "F", "delta": -3, "points": { "pharaoh": 2, "vampire": 1, "witch": 1 } },
-        { "id": "q2c", "text": "必须你蹲在旁边陪着才肯吃，吃一口就抬头看你一眼，确认你没走", "axis": "A", "delta": 3, "points": { "nurse": 2, "ghost": 1 } },
-        { "id": "q2d", "text": "叼起一大块跑到客厅地毯上慢慢啃，吃完再回去押运下一口", "axis": "E", "delta": 3, "points": { "zombie": 2, "clown": 1 } }
+        {
+          "id": "q2a",
+          "text": "碗还没落地它就到了，狗粮零食一视同仁，碗舔得能反光，干饭是它的毕生事业",
+          "axis": "F",
+          "delta": 3,
+          "points": {
+            "pumpkin": 4
+          }
+        },
+        {
+          "id": "q2b",
+          "text": "狗粮闻两下就走，一听零食袋开合立刻闪现，肉干冻干要挑牌子，嘴很刁",
+          "axis": "F",
+          "delta": -3,
+          "points": {
+            "pharaoh": 2,
+            "vampire": 1
+          }
+        },
+        {
+          "id": "q2c",
+          "text": "饿不饿全看它心情，碗放那儿能晾半天，但你用手喂的，它一定给面子吃完",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "nurse": 2,
+            "ghost": 1
+          }
+        },
+        {
+          "id": "q2d",
+          "text": "吃两口就跑去看一眼玩具，玩累了回来再补两口，小鸟胃，自助餐摆一天也吃不完",
+          "axis": "E",
+          "delta": 3,
+          "points": {
+            "zombie": 2,
+            "clown": 1
+          }
+        }
       ]
     },
     {
       "id": "q3",
-      "scene": "半夜的你家",
-      "text": "凌晨三点的客厅，正在上演哪一出？",
+      "scene": "凌晨三点的客厅",
+      "text": "凌晨三点，客厅里正在上演哪一出？",
       "options": [
-        { "id": "q3a", "text": "楼下有点动静就弹起来，阳台→大门→卧室挨个查岗，一晚上三趟", "axis": "E", "delta": 3, "points": { "werewolf": 3, "zombie": 1, "chainsaw": 1 } },
-        { "id": "q3b", "text": "贴着你床边睡成一团，打呼声比你还响，一夜没挪窝", "axis": "A", "delta": 3, "points": { "bride": 2, "nurse": 1 } },
-        { "id": "q3c", "text": "你起夜上厕所，黑暗里它早已坐好，抬着头安静看你，尾巴扫两下", "axis": "C", "delta": 3, "points": { "witch": 3, "franken": 1 } },
-        { "id": "q3d", "text": "突然对着窗外低吼两声，把你从梦里捞起来，它自己先装睡", "axis": "B", "delta": 3, "points": { "bat": 2, "pirate": 1, "clown": 1 } }
+        {
+          "id": "q3a",
+          "text": "半夜突然开始客厅折返跑，跑嗨了还要嚎两嗓子，一个月总得把你吵醒那么几回",
+          "axis": "E",
+          "delta": 3,
+          "points": {
+            "werewolf": 3,
+            "zombie": 1,
+            "chainsaw": 1
+          }
+        },
+        {
+          "id": "q3b",
+          "text": "早就挤上床占好位置了，你半夜翻身它跟着挪，睁眼闭眼它都贴在你旁边",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "nurse": 2,
+            "bride": 1
+          }
+        },
+        {
+          "id": "q3c",
+          "text": "你几点睡它几点上岗，趴在床边守着，你一起夜它立刻睁眼，像早就等着这一刻",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "witch": 4,
+            "franken": 1
+          }
+        },
+        {
+          "id": "q3d",
+          "text": "回自己小窝一钻就没影了，你睡了它也睡，至于它半夜干了什么，你永远不知道",
+          "axis": "A",
+          "delta": -3,
+          "points": {
+            "bat": 3,
+            "mummy": 1
+          }
+        }
       ]
     },
     {
       "id": "q4",
-      "scene": "新东西出现",
-      "text": "快递箱、新家具、陌生客人——你家狗先管哪个？",
+      "scene": "陌生客人来了，或者家里出现新东西",
+      "text": "外卖员一按门铃，门开了——你家狗的反应是？",
       "options": [
-        { "id": "q4a", "text": "新快递一落地，它先躲到纸箱后面，等你拆完才凑上来闻个遍", "axis": "C", "delta": 3, "points": { "mummy": 2, "franken": 1 } },
-        { "id": "q4b", "text": "陌生人一进门就缩到你腿后面，只探出半张脸暗中观察", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q4c", "text": "门铃一响就冲向大门，喉音全开，快递员是它认证的百年宿敌", "axis": "E", "delta": 3, "points": { "chainsaw": 2, "zombie": 1, "pirate": 1 } },
-        { "id": "q4d", "text": "天塌下来也不抬眼，顶多挪个屁股给你让出一块沙发", "axis": "C", "delta": -3, "points": { "vampire": 2, "gargoyle": 1 } }
+        {
+          "id": "q4a",
+          "text": "直接冲到门口摇尾巴迎接，陌生人也能三秒处成失散多年的亲人，社牛本牛",
+          "axis": "B",
+          "delta": 3,
+          "points": {
+            "pirate": 2,
+            "franken": 1
+          }
+        },
+        {
+          "id": "q4b",
+          "text": "门铃一响人就没影了，钻床底钻沙发底，等客人走了半小时才敢探出半个脑袋",
+          "axis": "B",
+          "delta": -3,
+          "points": {
+            "ghost": 2,
+            "mummy": 1
+          }
+        },
+        {
+          "id": "q4c",
+          "text": "人一多就往后退，但快递纸箱、新玩具必须挨个闻一遍，检查得比谁都认真",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "franken": 2,
+            "chainsaw": 1
+          }
+        },
+        {
+          "id": "q4d",
+          "text": "新东西摆面前也就抬鼻子闻一下，扭头就走，你精心挑的礼物它连多看一眼都欠奉",
+          "axis": "C",
+          "delta": -3,
+          "points": {
+            "vampire": 2,
+            "gargoyle": 1
+          }
+        }
       ]
     },
     {
       "id": "q5",
-      "scene": "像人时刻",
-      "text": "它最像「一个小人类」的时刻是——",
+      "scene": "觉得它真的像人一样",
+      "text": "有没有那么一瞬间，你觉得它根本就是个人？",
       "options": [
-        { "id": "q5a", "text": "生物钟比闹钟还准：到点催饭、到点催遛，误差不超过三分钟", "axis": "C", "delta": 3, "points": { "franken": 2, "pharaoh": 1, "witch": 1 } },
-        { "id": "q5b", "text": "你一掉眼泪，它就把脑袋搁上你膝盖，安安静静陪着，一动不动", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1 } },
-        { "id": "q5c", "text": "毫无预兆在家里狂奔三圈（zoomies），跑完若无其事去喝水", "axis": "E", "delta": 3, "points": { "werewolf": 2, "clown": 1, "chainsaw": 1 } },
-        { "id": "q5d", "text": "你干蠢事的时候，它用一种很稳的眼神看你，里面没有一丝波澜", "axis": "D", "delta": -3, "points": { "gargoyle": 2, "vampire": 1 } }
+        {
+          "id": "q5a",
+          "text": "这坐姿这表情，跟你一模一样，一看就是亲生的，连翻白眼的角度都复刻了",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "franken": 2,
+            "clown": 1
+          }
+        },
+        {
+          "id": "q5b",
+          "text": "平时各忙各的，可你一掉眼泪，它就悄悄走过来把头搁在你腿上，一句话不问",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "nurse": 2,
+            "bride": 2
+          }
+        },
+        {
+          "id": "q5c",
+          "text": "完全捉摸不透，刚才还在客厅，一转身就没了，再一回头又坐在你身后看着你",
+          "axis": "D",
+          "delta": 3,
+          "points": {
+            "witch": 2,
+            "clown": 1
+          }
+        },
+        {
+          "id": "q5d",
+          "text": "不太像人，就是个四脚野兽，贪玩贪吃贪睡，唯独不爱你那套抱抱亲亲的肉麻",
+          "axis": "A",
+          "delta": -3,
+          "points": {
+            "werewolf": 2,
+            "gargoyle": 1
+          }
+        }
       ]
     },
     {
       "id": "q6",
-      "scene": "摸摸敏感度",
-      "text": "伸手 rua 它的那一刻——",
+      "scene": "伸手去 rua 它",
+      "text": "你刚把手抬起来——",
       "options": [
-        { "id": "q6a", "text": "一摸就翻肚皮瘫倒，摊成一滩液体，还把下巴往你手心里送", "axis": "A", "delta": 3, "points": { "nurse": 2, "pumpkin": 1 } },
-        { "id": "q6b", "text": "摸两下就跑，过会儿又把头塞回你手下：「再摸一下，就一下」", "axis": "D", "delta": 3, "points": { "bride": 2, "ghost": 1 } },
-        { "id": "q6c", "text": "爪子尾巴全是雷区，摸错一下就起身走开，还回头看你一眼", "axis": "B", "delta": -3, "points": { "mummy": 2, "ghost": 1 } },
-        { "id": "q6d", "text": "摸不摸都行，拍拍头就算今天打卡，它全程眼皮都没抬", "axis": "A", "delta": -3, "points": { "vampire": 2, "pharaoh": 1, "bat": 1 } }
+        {
+          "id": "q6a",
+          "text": "这狗怎么一直响啊！手刚抬起来，脑袋已经自动顶到掌心里，摸着摸着就打起呼噜",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "nurse": 2,
+            "gargoyle": 1
+          }
+        },
+        {
+          "id": "q6b",
+          "text": "摸不摸得看它今天心情，多半时候你只能主动凑上去，强扭的瓜不甜但也得扭",
+          "axis": "D",
+          "delta": 3,
+          "points": {
+            "pharaoh": 3,
+            "vampire": 1
+          }
+        },
+        {
+          "id": "q6c",
+          "text": "手落错地方它立刻弹开，肚皮、后腿、尾巴根全是禁区，摸对了才勉强忍你三秒",
+          "axis": "B",
+          "delta": -3,
+          "points": {
+            "mummy": 3,
+            "ghost": 1
+          }
+        },
+        {
+          "id": "q6d",
+          "text": "随便你怎么揉怎么捏，翻过来搓肚皮也不生气，这汪浑身上下摸起来都是软的",
+          "axis": "B",
+          "delta": 3,
+          "points": {
+            "gargoyle": 2,
+            "pumpkin": 1
+          }
+        }
       ]
     },
     {
       "id": "q7",
-      "scene": "玩耍风格",
-      "text": "球、飞盘、玩具一晃——",
+      "scene": "玩具、球、飞盘一出现",
+      "text": "球和飞盘刚拿出来，你家狗——",
       "options": [
-        { "id": "q7a", "text": "拔河、追球、接飞盘全套输出，你先累趴了它还想再来一轮", "axis": "E", "delta": 3, "points": { "chainsaw": 2, "zombie": 1, "werewolf": 1 } },
-        { "id": "q7b", "text": "先瞄一眼你兜里藏没藏零食，确认这买卖划算才肯配合表演", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "pirate": 1 } },
-        { "id": "q7c", "text": "你扔你的球，它睡它的觉，睁眼都算给你面子", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
-        { "id": "q7d", "text": "突然压低前身、屁股撅上天、尾巴狂摇，对着玩具进入战斗姿态", "axis": "D", "delta": 3, "points": { "clown": 2, "witch": 1 } }
+        {
+          "id": "q7a",
+          "text": "瞬间进入战斗状态，飞扑抱咬拔河一条龙，体能好到怀疑它是不是装了电池",
+          "axis": "E",
+          "delta": 3,
+          "points": {
+            "chainsaw": 3,
+            "zombie": 1,
+            "werewolf": 1
+          }
+        },
+        {
+          "id": "q7b",
+          "text": "先看手里有没有零食，没有就当场罢工趴下，一只超级懒但超级馋的大馋狗",
+          "axis": "F",
+          "delta": 3,
+          "points": {
+            "pumpkin": 2,
+            "gargoyle": 1
+          }
+        },
+        {
+          "id": "q7c",
+          "text": "你扔你的它睡它的，玩具滚到脚边都懒得睁眼，你俩玩耍的神经永远对不上信号",
+          "axis": "E",
+          "delta": -3,
+          "points": {
+            "gargoyle": 2,
+            "bat": 1
+          }
+        },
+        {
+          "id": "q7d",
+          "text": "玩到一半突然定格，耳朵一竖就跑题了，被窗帘、影子或者一粒灰带走注意力",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "clown": 2,
+            "franken": 1
+          }
+        }
       ]
     },
     {
       "id": "q8",
-      "scene": "抢地盘",
-      "text": "你家的日常「领土纠纷」长这样——",
+      "scene": "家里的日常领土纠纷",
+      "text": "你家的日常领土纠纷，长这样——",
       "options": [
-        { "id": "q8a", "text": "你刚起身，沙发 C 位立刻易主，还会回头看你有没意见", "axis": "B", "delta": 3, "points": { "pharaoh": 2, "pirate": 1 } },
-        { "id": "q8b", "text": "眼睛黏在你碗里的肉上，你吃什么都比它碗里香，馋得直咽口水", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "werewolf": 1 } },
-        { "id": "q8c", "text": "你拆快递、修东西它全程监工，鼻子凑得比你的手还近", "axis": "C", "delta": 3, "points": { "franken": 2, "witch": 1 } },
-        { "id": "q8d", "text": "你忙你的，它窝在角落，互不打扰，偶尔抬眼看你一下", "axis": "A", "delta": -3, "points": { "bat": 2, "vampire": 1 } }
+        {
+          "id": "q8a",
+          "text": "你走到哪它跟到哪，你开电脑它就往键盘上坐，你干活它就负责在旁边监工",
+          "axis": "A",
+          "delta": 3,
+          "points": {
+            "franken": 2,
+            "nurse": 1
+          }
+        },
+        {
+          "id": "q8b",
+          "text": "你刚一起身，沙发立刻易主，谁敢靠近它的窝和饭碗，先领它一记眼刀",
+          "axis": "B",
+          "delta": 3,
+          "points": {
+            "pharaoh": 2,
+            "werewolf": 1
+          }
+        },
+        {
+          "id": "q8c",
+          "text": "家里没有它的专属宝座，今天睡地板明天睡玄关，心思早飘到楼下了",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "pirate": 2,
+            "witch": 1
+          }
+        },
+        {
+          "id": "q8d",
+          "text": "永远隔着一步远，你换房间它也挪个窝，像跟着你巡视领地的副官",
+          "axis": "A",
+          "delta": -3,
+          "points": {
+            "bat": 2,
+            "vampire": 1
+          }
+        }
       ]
     },
     {
       "id": "q9",
-      "scene": "出门遛弯",
-      "text": "听到「出门」两个字，你家狗——",
+      "scene": "出门这件事",
+      "text": "一说「走，出门」，你家狗——",
       "options": [
-        { "id": "q9a", "text": "原地转圈狂喜，牵引绳都能演成一台戏，出门像去领奖", "axis": "D", "delta": 3, "points": { "clown": 2, "bride": 1 } },
-        { "id": "q9b", "text": "全程淡定，别的狗冲着它叫也不理，稳得像它在遛你", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pirate": 1 } },
-        { "id": "q9c", "text": "怕鞭炮、怕医院，看见门口就四条腿刹车，怎么拖都不走", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q9d", "text": "每根电线杆都要闻半天签到，一条街走成一趟巡逻查岗", "axis": "C", "delta": 3, "points": { "pirate": 3, "franken": 1 } }
+        {
+          "id": "q9a",
+          "text": "刚提牵引绳它就满屋转圈尖叫，到了楼下嚎成一部连续剧，嗓子都快哑了",
+          "axis": "D",
+          "delta": 3,
+          "points": {
+            "clown": 3,
+            "bride": 1
+          }
+        },
+        {
+          "id": "q9b",
+          "text": "全程淡定得像出门遛弯的老干部，医生和路人都夸太乖，见过大风大浪的汪",
+          "axis": "B",
+          "delta": 3,
+          "points": {
+            "gargoyle": 2,
+            "pirate": 1
+          }
+        },
+        {
+          "id": "q9c",
+          "text": "从头抖到尾，全程试图把自己藏进你腿后面，眼睛一直在地面上找缝钻",
+          "axis": "B",
+          "delta": -3,
+          "points": {
+            "ghost": 2,
+            "mummy": 1
+          }
+        },
+        {
+          "id": "q9d",
+          "text": "一到新地方就开始巡逻签到，电线杆挨个闻，见谁都当成前世的老朋友",
+          "axis": "B",
+          "delta": 3,
+          "points": {
+            "pirate": 3,
+            "franken": 1
+          }
+        }
       ]
     },
     {
       "id": "q10",
-      "scene": "镜头感",
-      "text": "你一举起手机，它——",
+      "scene": "你一举起手机",
+      "text": "你一举起手机——",
       "options": [
-        { "id": "q10a", "text": "镜头一对就坐好，耳朵立正，还知道微微歪头找角度", "axis": "D", "delta": 3, "points": { "bride": 2, "clown": 1 } },
-        { "id": "q10b", "text": "看到手机就冲过来舔镜头，一百张里九十九张是鼻孔特写", "axis": "E", "delta": 3, "points": { "zombie": 2, "chainsaw": 1 } },
-        { "id": "q10c", "text": "一拍就扭头，死活不给正脸，镜头感大约为负数", "axis": "D", "delta": -3, "points": { "gargoyle": 1, "bat": 1, "witch": 1 } },
-        { "id": "q10d", "text": "凑过来闻手机，再一爪子拍下去，拍摄到此结束", "axis": "C", "delta": 3, "points": { "franken": 2, "witch": 1 } }
+        {
+          "id": "q10a",
+          "text": "镜头一对准它就自动坐好，还会歪头找角度，相册翻出来全是它的精修写真",
+          "axis": "D",
+          "delta": 3,
+          "points": {
+            "bride": 3,
+            "clown": 1
+          }
+        },
+        {
+          "id": "q10b",
+          "text": "拍一百张，九十九张糊，剩下一张是它的屁股，镜头感为零但动感拉满",
+          "axis": "E",
+          "delta": 3,
+          "points": {
+            "zombie": 2,
+            "chainsaw": 1
+          }
+        },
+        {
+          "id": "q10c",
+          "text": "家里的睡神，相册八成都是闭眼大睡的照片，翻两页能凑齐一本睡姿大全",
+          "axis": "E",
+          "delta": -3,
+          "points": {
+            "gargoyle": 2,
+            "bat": 1
+          }
+        },
+        {
+          "id": "q10d",
+          "text": "镜头一开它就凑上来看，鼻子顶在镜头上，于是相册里全是它的尴尬大头照",
+          "axis": "C",
+          "delta": 3,
+          "points": {
+            "franken": 2,
+            "clown": 1
+          }
+        }
       ]
     }
   ]

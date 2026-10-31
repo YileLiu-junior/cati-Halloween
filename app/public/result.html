@@ -17,25 +17,25 @@
       </div>
       <div id="resultMain" class="hidden">
         <header class="result-header">
-          <p class="rarity"><span id="rarity"></span><span class="rarity-info" tabindex="0" title="占比来自题库模拟分布，非实时全站统计" aria-label="占比来自题库模拟分布，非实时全站统计">i</span></p>
+          <p class="result-lead"><span id="petNameDisplay" class="petname-row"><button id="renameBtn" class="pet-name-button" aria-label="修改宠物姓名" title="修改宠物姓名"><strong id="petNameText"></strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1 12-12a2.8 2.8 0 0 0-4-4L4 15v5Z" /></svg></button></span>万圣节会扮演的角色是…</p>
+          <form id="renameForm" class="rename-form hidden" aria-label="修改宠物姓名">
+            <input id="petNameInput" aria-label="新的宠物姓名" aria-describedby="resultError" maxlength="24" autocomplete="off" />
+            <button id="saveNameBtn" type="submit" class="secondary">保存</button>
+            <button id="cancelNameBtn" type="button" class="text-button">取消</button>
+          </form>
+          <p id="nameStatus" class="name-status" role="status" aria-live="polite"></p>
           <h1 id="roleName"></h1>
         </header>
         <figure class="free-card">
-          <iframe id="holoCard" title="可拖动的立体炫彩角色卡"></iframe>
-          <canvas id="cardCanvas" width="750" height="1000" class="hidden" aria-hidden="true"></canvas>
-          <figcaption class="card-caption" id="cardCaption">拖动卡片查看炫彩效果 · AI 生成角色示意</figcaption>
+          <a id="viewCardLink" aria-label="放大查看角色卡" aria-haspopup="dialog"><img id="roleCardImage" width="900" height="1380" alt="宠物角色卡" decoding="async" fetchpriority="high" /></a>
+          <canvas id="cardCanvas" class="hidden" aria-hidden="true"></canvas>
+          <figcaption class="card-caption" id="cardCaption">点击卡片可放大 · AI 生成角色示意</figcaption>
         </figure>
         <p class="quote" id="quote"></p>
-        <div id="petNameDisplay" class="petname-row">
-          <span id="petNameText"></span>
-          <button id="renameBtn" class="icon-button" aria-label="修改宠物姓名" title="修改宠物姓名"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1 12-12a2.8 2.8 0 0 0-4-4L4 15v5Z" /></svg></button>
+        <div class="rarity-area">
+          <p class="rarity"><span id="rarity"></span><button id="rarityInfo" class="rarity-info" type="button" aria-label="查看概率说明" aria-expanded="false" aria-controls="rarityHelp" aria-describedby="rarityHelp"><span aria-hidden="true">!</span></button></p>
+          <p id="rarityHelp" class="rarity-help hidden" role="tooltip">概率来自题库随机答题的模拟分布，仅供参考，并非实时用户统计。</p>
         </div>
-        <form id="renameForm" class="rename-form hidden" aria-label="修改宠物姓名">
-          <input id="petNameInput" aria-label="新的宠物姓名" aria-describedby="resultError" maxlength="24" autocomplete="off" />
-          <button id="saveNameBtn" type="submit" class="secondary">保存</button>
-          <button id="cancelNameBtn" type="button" class="text-button">取消</button>
-        </form>
-        <p id="nameStatus" class="name-status" role="status" aria-live="polite"></p>
         <div id="resultError" class="error hidden" role="alert"></div>
         <section class="traits-layout" aria-label="性格解读">
           <canvas id="radar" width="340" height="310" role="img" aria-label="六维性格图"></canvas>
@@ -45,24 +45,41 @@
           </div>
         </section>
         <div class="result-actions">
-          <button id="customBtn" class="primary">生成专属盲盒角色卡片 <span aria-hidden="true">↗</span></button>
+          <p class="avatar-cta-note" id="avatarCtaNote">上传照片生成与结果卡片风格相同的万圣节头像</p>
+          <button id="customBtn" class="primary avatar-cta" aria-describedby="avatarCtaNote"><span class="avatar-next">next</span><span>定制宠物万圣节装扮头像</span><span aria-hidden="true">↗</span></button>
           <div class="row">
-            <button id="saveCardBtn" class="secondary">保存免费卡</button>
+            <button id="saveCardBtn" class="secondary" disabled aria-haspopup="dialog">分享结果</button>
             <button id="againBtn" class="secondary">再测一只</button>
           </div>
         </div>
         <p class="result-footer">喵灵万圣节 · 每只毛孩子都有另一面</p>
       </div>
     </main>
+    <dialog id="shareDialog" class="share-dialog" aria-labelledby="shareTitle" aria-describedby="shareIntro">
+      <div class="share-heading"><h2 id="shareTitle">分享它的万圣节角色</h2><button id="closeShareBtn" class="icon-button" type="button" aria-label="关闭分享预览"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
+      <p id="shareIntro" class="share-intro">名字、角色卡、台词和性格解读，收进一张图片。</p>
+      <p id="shareStatus" class="share-status" role="status" aria-live="polite"></p>
+      <div id="sharePreview" class="share-preview hidden"><img id="sharePreviewImage" alt="完整测评结果分享图片" /></div>
+      <button id="previewShareLarge" class="text-button share-zoom hidden" type="button">放大查看</button>
+      <div class="share-actions"><a id="saveShareImage" class="primary hidden">保存图片</a><button id="shareMomentsBtn" class="secondary" type="button" disabled aria-expanded="false" aria-controls="momentsGuide">分享到朋友圈</button></div>
+      <p class="share-note">也可以长按预览图片保存，再到朋友圈选图发布。</p>
+      <ol id="momentsGuide" class="moments-guide hidden"><li>长按上方图片，或点击“保存图片”，保存到手机。</li><li>在微信打开“发现 → 朋友圈”。</li><li>点击相机，从相册选择这张图片后发表。</li></ol>
+    </dialog>
+    <dialog id="imageViewer" class="image-viewer" aria-labelledby="imageViewerTitle">
+      <div class="viewer-heading"><h2 id="imageViewerTitle">角色卡大图</h2><button id="closeImageViewer" class="icon-button" type="button" aria-label="关闭图片查看"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
+      <div id="imageViewport" class="image-viewport"><div class="image-stage"><img id="viewerImage" alt="" /></div></div>
+      <div class="viewer-toolbar"><button id="zoomOutImage" class="secondary" type="button" aria-label="缩小图片">−</button><button id="resetImageZoom" class="text-button" type="button" aria-label="还原图片大小">1×</button><button id="zoomInImage" class="secondary" type="button" aria-label="放大图片">+</button><a id="openOriginalImage" class="text-button" target="_blank" rel="noopener">打开原图</a></div>
+      <p class="viewer-note">双指缩放或使用 + / −，长按图片可保存</p>
+    </dialog>
     <dialog id="customDialog" class="custom-dialog" aria-labelledby="customTitle" aria-describedby="customIntro">
       <div class="custom-heading">
-        <p class="custom-kicker">毛孩子的万圣节盲盒</p>
+        <p class="custom-kicker">毛孩子的万圣节头像</p>
         <button id="closeCustomBtn" class="icon-button" aria-label="关闭定制窗口" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
       </div>
       <h2 id="customTitle">想让它扮演谁？</h2>
       <p id="customIntro" class="custom-intro">用测出的角色，或挑选一个喜欢的造型。</p>
       <ol class="custom-steps" aria-label="定制步骤">
-        <li id="stepRole" aria-current="step">1 选择角色</li><li id="stepPhoto">2 上传照片</li><li id="stepPayment">3 确认付款</li><li id="stepGenerate">4 拆开盲盒</li>
+        <li id="stepRole" aria-current="step">1 选择角色</li><li id="stepPhoto">2 上传照片</li><li id="stepPayment">3 确认付款</li><li id="stepGenerate">4 生成头像</li>
       </ol>
       <section id="roleStep">
         <div id="roleChoice">
@@ -74,7 +91,7 @@
           <div id="roleSlide" class="role-slide" aria-live="polite" aria-atomic="true">
             <p class="role-rarity" id="browseRarity"></p>
             <h3 id="browseRoleName"></h3>
-            <div class="role-portrait"><span id="roleImageStatus">正在加载角色图片…</span><img id="browseRoleImage" class="hidden" alt="" /></div>
+            <div class="role-portrait"><span id="roleImageStatus">正在加载角色图片…</span><div class="role-sprite-window"><img id="browseRoleImage" class="hidden" alt="" decoding="async" /></div></div>
             <p class="role-quote" id="browseRoleQuote"></p>
           </div>
           <div class="role-navigation" aria-label="切换角色">
@@ -90,22 +107,22 @@
         <p class="selected-role">选择的角色：<strong id="selectedRoleName"></strong> <button id="changeRole" class="text-button" type="button">更换</button></p>
         <div class="photo-picker">
           <img id="photoPreview" class="hidden" alt="已选择的毛孩子照片" />
-          <label for="petPhoto" id="photoLabel">选择宠物照片<span>JPG、PNG、WebP，原图不超过 10MB</span></label>
+          <div id="photoLabel"><button id="pickPhotoBtn" class="secondary" type="button">选择宠物照片</button><span>JPG、PNG、WebP，原图不超过 10MB</span></div>
           <input id="petPhoto" type="file" accept="image/*" aria-describedby="customIntro photoHelp" />
         </div>
         <p id="photoHelp" class="custom-note">照片短边至少 512px。上传前会压缩照片并移除元信息。</p>
         <label class="photo-consent"><input id="photoConsent" type="checkbox" /><span>我同意照片仅用于本次定制，并由第三方 AI 生图服务处理。云端照片和生成图片保留 7 天。请勿上传人脸或证件。</span></label>
         <button id="uploadPhotoBtn" class="secondary" disabled type="button">上传这张照片</button>
-        <button id="generatePaidBtn" class="primary hidden" type="button">1.8元生成定制盲盒</button>
-        <p id="customAvailability" class="custom-note hidden">定制服务尚未开放，暂不收款。</p>
+        <button id="generatePaidBtn" class="primary hidden" type="button">确认头像定制</button>
+        <p id="customAvailability" class="custom-note hidden">付费定制暂未开放。当前可体验选角色和上传照片，暂不收款。</p>
       </section>
       <section id="paymentStep" class="hidden">
         <p id="paymentAmount" class="payment-amount"></p>
         <p class="selected-role">定制角色：<strong id="paymentRoleName"></strong></p>
-        <p class="custom-note">将直接打开指定型号的付款页。订单留言已自动填写，请保留原文。付款后返回 PETI，系统会自动查询付款状态。</p>
-        <div class="payment-reference"><code id="paymentReference"></code><button id="copyPaymentBtn" class="text-button" type="button">复制</button></div>
-        <a id="payLink" class="primary custom-pay-link" rel="noreferrer">前往指定型号付款</a>
-        <button id="checkPaymentBtn" class="secondary" type="button">付款后查询状态</button>
+        <p class="custom-note" id="paymentInstructions">付款后自动开始生成，无需复制订单号。进度与头像入口将发送到付款所用的爱发电账号。代付时请留意收图账号。</p>
+        <details class="payment-order"><summary>查看定制订单信息</summary><div class="payment-reference"><code id="paymentReference"></code><button id="copyPaymentBtn" class="text-button" type="button">复制</button></div></details>
+        <a id="payLink" class="primary custom-pay-link" target="_blank" rel="noopener noreferrer">前往爱发电付款</a>
+        <button id="checkPaymentBtn" class="secondary" type="button">我已付款，核对状态</button>
         <details class="payment-order"><summary>付款后仍未确认？</summary>
           <label class="field"><span>爱发电订单号</span><input id="platformOrderNo" inputmode="numeric" autocomplete="off" maxlength="40" placeholder="从爱发电订单详情复制" /></label>
           <button id="confirmPaymentBtn" class="secondary" type="button">核对订单号</button>
@@ -115,8 +132,22 @@
         <p id="generationMessage" role="status"></p>
         <button id="checkJobBtn" class="secondary hidden" type="button">查询进度</button>
         <button id="retryJobBtn" class="primary hidden" type="button">重试生成</button>
-        <figure id="customOutput" class="hidden"><img id="customImage" alt="毛孩子的定制盲盒形象" /><figcaption class="custom-note">AI 生成 · 请在 7 天内保存</figcaption></figure>
-        <button id="saveCustomBtn" class="primary hidden" type="button">保存定制盲盒</button>
+        <figure id="customOutput" class="hidden"><img id="customImage" alt="毛孩子的万圣节头像" /><figcaption class="custom-note">AI 生成 · 请在 7 天内保存</figcaption></figure>
+        <button id="saveCustomBtn" class="primary hidden" type="button">保存头像</button>
+      </section>
+      <section id="refundSection" class="avatar-support hidden" aria-labelledby="refundHeading">
+        <h3 id="refundHeading">需要帮助？</h3>
+        <p id="refundHint" class="custom-note"></p>
+        <button id="openRefundBtn" class="text-button" type="button" aria-expanded="false" aria-controls="refundForm">申请退款或核对付款</button>
+        <form id="refundForm" class="hidden">
+          <label class="field"><span>申请原因</span><select id="refundReason"><option value="not_delivered">已付款，未收到头像</option><option value="generation_failed">头像生成失败</option><option value="duplicate_payment">重复付款</option><option value="image_quality">头像效果有问题</option><option value="payment_unconfirmed">已付款，仍未识别</option></select></label>
+          <label class="field"><span>补充说明（选填）</span><textarea id="refundDetails" maxlength="500" rows="3"></textarea></label>
+          <label class="field"><span>通知方式（选填）</span><input id="refundContact" maxlength="120" autocomplete="off" placeholder="邮箱或爱发电昵称" /></label>
+          <button id="submitRefundBtn" class="secondary" type="submit">提交申请</button>
+          <p class="custom-note">订单信息会自动带入。提交后暂停新的生成与重试。24 小时内首次审核，到账时间以退款渠道为准。</p>
+        </form>
+        <button id="withdrawRefundBtn" class="text-button hidden" type="button">撤回退款申请</button>
+        <p id="refundStatus" role="status" aria-live="polite"></p>
       </section>
       <p id="customProgress" class="custom-progress" role="status" aria-live="polite"></p>
       <p id="customError" class="error hidden" role="alert"></p>

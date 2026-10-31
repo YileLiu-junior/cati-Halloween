@@ -1,0 +1,38 @@
+name = "peti-avatar-delivery"
+main = "delivery-worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+DELIVERY_ENABLED = "false"
+CUSTOM_GENERATION_ENABLED = "true"
+PETI_PUBLIC_ORIGIN = "https://peti-halloween.pages.dev"
+AFDIAN_PLAN_ID = "2315e4b0d2e911f186f652540025c377"
+AFDIAN_SKU_ID = "231df344d2e911f1b46452540025c377"
+AFDIAN_PAY_URL = "https://afdian.com/order/create?product_type=1&plan_id=2315e4b0d2e911f186f652540025c377&sku=%5B%7B%22sku_id%22%3A%22231df344d2e911f1b46452540025c377%22,%22count%22%3A1%7D%5D&viokrz_ex=0"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "PETI_DB"
+database_name = "peti-custom-orders-test"
+database_id = "1745501a-3e2a-4bca-a8a7-45c33cf62a37"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "PETI_IMAGES"
+bucket_name = "peti-custom-images"
+
+[[queues.producers]]
+binding = "PETI_DELIVERY_QUEUE"
+queue = "peti-avatar-delivery"
+
+[[queues.consumers]]
+queue = "peti-avatar-delivery"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 2
+max_retries = 3
+dead_letter_queue = "peti-avatar-delivery-dlq"

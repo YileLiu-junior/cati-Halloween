@@ -1,5 +1,7 @@
 import { apiError, json, sha256Hex } from "./api.js";
-import { GENERATION_CONFIG } from "./generation-config.js";
+import { generationProfile, generationSnapshot } from "./generation-config.js";
+import { verifyOrderAccess } from "./order-access.js";
+import { imageWithheld } from "./delivery-store.js";
 
 export const PHOTO_TTL = 7 * 24 * 60 * 60 * 1000;
 export const CUTOFF = Date.parse("2026-10-31T18:00:00+08:00");
@@ -22,6 +24,26 @@ export async function guarded(action) {
     response.headers.set("cache-control", "no-store");
     return response;
   }
+}
+
+export async function readJson(request) {
+  if (Number(request.headers.get("content-length")) > 8192) fail("PAYLOAD_TOO_LARGE", "提交内容过长", 413);
+  const reader = request.body?.getReader();
+  if (!reader) fail("PARAM_MISSING", "请填写提交内容");
+  const chunks = []; let length = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    length += value.length;
+    if (length > 8192) { await reader.cancel(); fail("PAYLOAD_TOO_LARGE", "提交内容过长", 413); }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(length); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  let body;
+  try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { fail("PARAM_MISSING", "提交内容格式无效"); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) fail("PARAM_MISSING", "提交内容格式无效");
+  return body;
 }
 
 export function requireStorage(env) {
@@ -52,14 +74,19 @@ export function paymentConfigured(env) {
 }
 
 export function generationConfigured(env) {
-  return Boolean(env.ARK_API_KEY?.trim() && GENERATION_CONFIG.prompt.trim() && Object.keys(GENERATION_CONFIG.roleImageKeys).length);
+  return Boolean(env.CUSTOM_GENERATION_ENABLED !== "false" && env.ARK_API_KEY?.trim()
+    && env.PETI_DELIVERY_QUEUE && env.ORDER_ACCESS_SECRET?.length >= 32
+    && ["cat", "dog"].some(pet => generationProfile(pet)?.prompt?.trim() && Object.keys(generationProfile(pet)?.roleImageKeys || {}).length));
 }
 
 export async function requireGeneration(env, result) {
   if (!generationConfigured(env)) fail("SERVICE_NOT_CONFIGURED", "定制服务尚未开放，暂不收款", 503);
+  const heartbeat = await env.PETI_DB.prepare("SELECT value,updated_at FROM delivery_control WHERE key='heartbeat'").first();
+  if (heartbeat?.value !== "ok" || Date.now() - heartbeat.updated_at > 300_000) fail("DELIVERY_UNAVAILABLE", "头像生成服务正在维护，暂不收款", 503);
   // 角色没有登记参考图时在收款前拦截，避免付款后无法生成。
-  if (!result || !Object.hasOwn(GENERATION_CONFIG.roleImageKeys, result.roleId)) fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
-  const key = GENERATION_CONFIG.roleImageKeys[result.roleId];
+  const profile = result?.generation || generationSnapshot(result || {});
+  if (!profile.prompt?.trim() || !profile.referenceKey) fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
+  const key = profile.referenceKey;
   const object = typeof key === "string" && key.startsWith("references/") ? await env.PETI_IMAGES.head(key) : null;
   if (!object || !["image/png", "image/jpeg", "image/webp"].includes(object.httpMetadata?.contentType) || object.size <= 0 || object.size > 10 * 1024 * 1024) {
     fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
@@ -71,21 +98,21 @@ export async function loadOrder(env, id, token) {
   const order = await env.PETI_DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
   if (!order) fail("ORDER_NOT_FOUND", "没有找到这笔订单", 404);
   // 订单凭证独立于免费结果的 30 天 TTL，已付未交付订单仍可取回。
-  if (typeof token !== "string" || await sha256Hex(token) !== order.token_hash) fail("TOKEN_INVALID", "订单凭证无效", 401);
-  if (order.status === "generating" && Date.now() - order.started_at > 400_000) {
-    await env.PETI_DB.prepare("UPDATE orders SET status = 'uncertain', retryable = 0, error_code = 'GENERATION_UNCERTAIN' WHERE id = ? AND status = 'generating'").bind(id).run();
-    return { ...order, status: "uncertain", retryable: 0, error_code: "GENERATION_UNCERTAIN" };
-  }
+  if (typeof token !== "string" || token.length > 800 || (await sha256Hex(token) !== order.token_hash && !await verifyOrderAccess(env, order, token))) fail("TOKEN_INVALID", "订单凭证无效", 401);
   return order;
 }
 
 export function orderPayload(order) {
+  const result = JSON.parse(order.result_json);
   return {
     payId: order.id, jobId: order.id, photoId: order.photo_id, status: order.status,
-    roleId: JSON.parse(order.result_json).roleId,
+    roleId: result.roleId, petType: result.petType, petName: result.petName, roleName: result.roleName,
+    paidAt: order.paid_at, deliveredAt: order.delivered_at, refundStatus: order.refund_status || "none",
+    primaryRefunded: Boolean(order.primary_refunded),
+    refundEligible: Boolean(order.platform_order_no && (["failed", "uncertain"].includes(order.status) || Date.now() - order.paid_at >= 600_000)),
     amountFen: order.amount_fen, expiresAt: new Date(order.expires_at).toISOString(),
     retryable: Boolean(order.retryable && order.attempts < 2), errorCode: order.error_code,
-    imageUrl: order.status === "ready" ? `/api/jobs/${order.id}/image` : null,
+    imageUrl: order.status === "ready" && !imageWithheld(order) ? `/api/jobs/${order.id}/image` : null,
   };
 }
 

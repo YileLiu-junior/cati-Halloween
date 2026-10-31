@@ -49,6 +49,16 @@ let targetX = -0.035,
   targetY = -0.15,
   lastPointer = { x: 0, y: 0 },
   noticeTimer;
+let deviceTilt = false, fallbackTilt;
+window.addEventListener("message", (event) => {
+  if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== "peti:card-tilt") return;
+  const { x, y, active } = event.data;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x, y) > TILT_LIMIT) return;
+  deviceTilt = Boolean(active);
+  if (fallbackTilt) { fallbackTilt(x, y, deviceTilt); return; }
+  auto = false; returning = false;
+  if (!dragging) { targetX = x; targetY = (flipped ? Math.PI : 0) + y; }
+});
 const settings = [
   ["foil", "uFoil"],
   ["scale", "uScale"],
@@ -311,8 +321,8 @@ async function init() {
   const role = params.get("role");
   if (!["ghost", "zombie", "chainsaw", "mummy", "nurse", "vampire", "franken", "pirate", "clown", "bride", "witch", "werewolf", "bat", "gargoyle", "pharaoh", "pumpkin"].includes(role)) throw Error("角色图片未找到");
   config.title = params.get("name") || role;
-  config.assets.subject = `./roles/${role}.png`;
-  config.assets.lineart = `./roles/${role}-line.png`;
+  config.assets.subject = `./roles/${role}.webp`;
+  config.assets.lineart = `./roles/${role}-line.webp`;
   document.title = config.title + " · 白相";
   for (const [id, key] of [
     ["card-title", "title"],
@@ -353,7 +363,7 @@ async function init() {
     }
   }
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia("(pointer: coarse)").matches ? 1.25 : 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
   stage.append(renderer.domElement);
@@ -578,6 +588,7 @@ function fallback3D(error) {
   // ---- interaction state (independent of the WebGL path) ----
   let tx = -0.03, ty = -0.06, curX = 0, curY = 0, curFlip = 0, flipTarget = 0;
   let lastMove = 0, sway = !media.matches;
+  fallbackTilt = (x, y, active) => { tx = x; ty = y; sway = !active && !media.matches; lastMove = performance.now(); };
   let scale = 1, depthScale = 1, bgScale = 1;
   const applyLayers = () => {
     for (const [name, { el, z }] of layers) {
@@ -598,7 +609,7 @@ function fallback3D(error) {
   });
   stage.addEventListener("pointerleave", () => { tx = 0; ty = 0; lastMove = 0; });
   const frame = (now) => {
-    if (sway && now - lastMove > 1500) {
+    if (sway && !deviceTilt && now - lastMove > 1500) {
       const t = now / 1000;
       tx = Math.sin(t * 1.09375) * 0.07;
       ty = Math.sin(t * 0.859375) * 0.14;
@@ -980,7 +991,7 @@ function animate(now) {
   root.rotation.y += (targetY - root.rotation.y) * ease;
   if (returning && Math.hypot(root.rotation.x, root.rotation.y - (flipped ? Math.PI : 0)) < 0.005) {
     returning = false;
-    setAuto(!media.matches && !flipped);
+    setAuto(!deviceTilt && !media.matches && !flipped);
   }
   root.updateMatrixWorld(true);
   uniforms.uView.value

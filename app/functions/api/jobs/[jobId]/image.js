@@ -1,7 +1,9 @@
 import { fail, guarded, loadOrder, privateImage } from "../../../lib/custom.js";
+import { imageWithheld } from "../../../lib/delivery-store.js";
 
 export const onRequestGet = ({ request, env, params }) => guarded(async () => {
   const order = await loadOrder(env, params.jobId, request.headers.get("X-PT-Token"));
+  if (imageWithheld(order)) fail("REFUND_LOCKED", "这笔订单已进入退款处理", 409);
   if (order.expires_at <= Date.now()) {
     if (order.image_key) await env.PETI_IMAGES.delete(order.image_key);
     fail("IMAGE_EXPIRED", "定制图片已过 7 天保留期", 410);

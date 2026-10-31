@@ -1,13 +1,15 @@
+import { roleCardUrl } from "./role-assets.js";
 import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints } from "./store.js";
 import { track } from "./track.js";
 import { initCustom } from "./custom.js";
+import { initResultMedia, probabilityText } from "./result-media.js";
 
 const $ = (id) => document.getElementById(id);
 const active = getState();
 const requestedId = new URLSearchParams(location.search).get("testId");
 let entry = getResult(requestedId || active.testId);
 let image;
-let cardReady = false;
+const media = initResultMedia(() => entry);
 const ROLES = new Set(["ghost", "zombie", "chainsaw", "mummy", "nurse", "vampire", "franken", "pirate", "clown", "bride", "witch", "werewolf", "bat", "gargoyle", "pharaoh", "pumpkin"]);
 const AXES = [["E", "电量"], ["A", "贴贴"], ["B", "胆量"], ["D", "戏精"], ["F", "干饭"], ["C", "好奇"]];
 const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
@@ -35,7 +37,7 @@ async function boot() {
   }
   saveResult(entry);
   const result = entry.result;
-  $("rarity").textContent = `全站仅 ${result.rarityPct}% 的`;
+  $("rarity").textContent = probabilityText(entry);
   $("roleName").textContent = result.roleName;
   $("quote").textContent = `「${result.quote}」`;
   $("tagline").textContent = result.tagline || "它的另一面";
@@ -46,24 +48,23 @@ async function boot() {
   }
   $("petNameText").textContent = entry.petName;
   drawRadar(result.axes);
+  // 内容先显示，静态卡片独立加载；不再启动 iframe、WebGL 或感应监听。
+  $("resultLoading").classList.add("hidden");
+  $("resultMain").classList.remove("hidden");
   $("saveCardBtn").disabled = true;
-  image = new Image();
-  if (ROLES.has(result.roleId)) image.src = `/holo-card/roles/${result.roleId}.png`;
+  image = $("roleCardImage");
+  image.alt = `${result.roleName}的静态角色卡`;
+  if (ROLES.has(result.roleId)) {
+    image.src = roleCardUrl(entry.petType, result.roleId);
+    $("viewCardLink").href = image.src;
+  }
   try {
     if (!image.src) throw new Error("角色图片未找到");
     await image.decode();
-    drawCard();
-    cardReady = true;
     $("saveCardBtn").disabled = false;
   } catch {
     $("cardCaption").textContent = "角色图片加载失败，刷新页面重试";
     $("cardCaption").setAttribute("role", "alert");
-    drawCard();
-  }
-  $("resultLoading").classList.add("hidden");
-  $("resultMain").classList.remove("hidden");
-  if (ROLES.has(result.roleId)) {
-    $("holoCard").src = `/holo-card/?${new URLSearchParams({ role: result.roleId, name: result.roleName })}`;
   }
   track("result_view", { roleId: result.roleId });
 }
@@ -105,40 +106,6 @@ function drawRadar(axes) {
   canvas.setAttribute("aria-label", AXES.map(([key, label]) => `${label} ${axes[key] ?? 5}/10`).join("，"));
 }
 
-// 同一画布用于预览和下载，姓名修改后两处保持一致。
-function drawCard() {
-  const canvas = $("cardCanvas");
-  const ctx = canvas.getContext("2d");
-  const { result, petName } = entry;
-  const bg = ctx.createLinearGradient(0, 0, 750, 1000);
-  bg.addColorStop(0, "oklch(0.30 0.075 319)");
-  bg.addColorStop(1, "oklch(0.17 0.018 15)");
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, 750, 1000);
-  ctx.strokeStyle = "oklch(0.79 0.16 65 / 0.6)"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(24, 24, 702, 952, 28); ctx.stroke();
-  ctx.fillStyle = "oklch(0.79 0.16 65)";
-  ctx.font = `24px ${FONT}`; ctx.textAlign = "center";
-  ctx.fillText("喵 灵 万 圣 节", 375, 82);
-  ctx.fillStyle = "oklch(0.94 0.016 75)";
-  ctx.font = `bold 36px ${FONT}`;
-  ctx.fillText(result.roleName, 375, 142, 650);
-  const glow = ctx.createRadialGradient(375, 470, 40, 375, 470, 330);
-  glow.addColorStop(0, "oklch(0.58 0.13 65 / 0.24)");
-  glow.addColorStop(1, "oklch(0.30 0.075 319 / 0)");
-  ctx.fillStyle = glow; ctx.fillRect(40, 160, 670, 620);
-  if (image?.naturalWidth) {
-    ctx.drawImage(image, 54, 380, 800, 1000, 135, 180, 480, 600);
-  }
-  ctx.fillStyle = "oklch(0.94 0.016 75)";
-  ctx.font = `bold 40px ${FONT}`; ctx.fillText(petName, 375, 836, 630);
-  ctx.fillStyle = "oklch(0.79 0.16 65)";
-  ctx.font = `24px ${FONT}`; ctx.fillText(result.quote, 375, 886, 640);
-  ctx.fillStyle = "oklch(0.72 0.022 65)";
-  ctx.font = `19px ${FONT}`; ctx.fillText("小红书搜：喵灵万圣节", 375, 934);
-  ctx.font = `16px ${FONT}`; ctx.fillText("免费角色卡 · AI 生成角色示意", 375, 961);
-  canvas.setAttribute("aria-label", `${petName}的免费角色卡：${result.roleName}。${result.quote}。AI 生成角色示意。`);
-}
-
 function closeRename() {
   $("renameForm").classList.add("hidden");
   $("petNameDisplay").classList.remove("hidden");
@@ -173,7 +140,7 @@ $("renameForm").addEventListener("submit", (event) => {
     if (!updated) throw new Error("missing result");
     entry = updated;
     $("petNameText").textContent = name;
-    drawCard();
+    media.invalidate();
     $("resultError").classList.add("hidden");
     closeRename();
     $("nameStatus").textContent = "名字已保存";
@@ -182,30 +149,24 @@ $("renameForm").addEventListener("submit", (event) => {
     $("resultError").classList.remove("hidden");
   }
 });
-$("saveCardBtn").addEventListener("click", async () => {
-  if (!cardReady) return;
-  const btn = $("saveCardBtn");
-  btn.disabled = true;
-  btn.textContent = "正在保存…";
-  try {
-    const blob = await new Promise((resolve) => $("cardCanvas").toBlob(resolve, "image/png"));
-    if (!blob) throw new Error("empty card");
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = "喵灵万圣节-免费角色卡.png";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    track("export_ready", { type: "free" });
-    btn.textContent = "已保存免费卡";
-  } catch {
-    btn.textContent = "保存失败，点击重试";
-  }
-  btn.disabled = false;
+let rarityPinned = false;
+function showRarity(visible) {
+  $("rarityHelp").classList.toggle("hidden", !visible);
+  $("rarityInfo").setAttribute("aria-expanded", String(visible));
+}
+$("rarityInfo").addEventListener("click", () => { rarityPinned = !rarityPinned; showRarity(rarityPinned); });
+$("rarityInfo").addEventListener("pointerenter", event => { if (event.pointerType === "mouse") showRarity(true); });
+$("rarityInfo").addEventListener("pointerleave", () => { if (!rarityPinned) showRarity(false); });
+$("rarityInfo").addEventListener("focus", () => showRarity(true));
+$("rarityInfo").addEventListener("blur", () => { if (!rarityPinned) showRarity(false); });
+document.addEventListener("pointerdown", event => {
+  if (!event.target.closest(".rarity-area")) { rarityPinned = false; showRarity(false); }
 });
+document.addEventListener("keydown", event => { if (event.key === "Escape") { rarityPinned = false; showRarity(false); } });
 initCustom(() => entry);
 $("againBtn").addEventListener("click", () => {
   if (entry) saveResult(entry);
   // 新测在首页点击开始时创建；此处不清除其他宠物未完成的进度。
-  location.href = "/index.html";
+  location.href = "/";
 });
 boot();

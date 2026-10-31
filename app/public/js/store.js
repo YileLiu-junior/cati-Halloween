@@ -1,3 +1,4 @@
+import { roleCardUrl, roleAtlasUrl } from "./role-assets.js";
 // localStorage 状态（PRD §4.2：匿名ID/渠道/testId/题目版本/选项顺序/答案/宠物名/结果/口令）
 // 单键 blob，命名空间 peti:v1；不作任何权益依据
 const KEY = "peti:v1";
@@ -107,7 +108,32 @@ export function petNameCodePoints(name) {
 }
 
 export async function fetchQuiz(petType) {
-  const res = await fetch(`/data/quiz-${petType}.json`);
+  const version = globalThis.PETI_CONFIG?.quizVersions?.[petType] || "2026v1";
+  const res = await fetch(`/data/quiz-${petType}.json?v=${encodeURIComponent(version)}`);
   if (!res.ok) throw new Error("quiz data fetch failed");
   return res.json();
+}
+
+const imageWarmups = new Map();
+export function prefetchQuizImages(characters, petType) {
+  if (imageWarmups.has(petType) || navigator.connection?.saveData) return;
+  const download = async (path) => {
+    try {
+      const response = await fetch(path, { cache: "force-cache", priority: "low", signal: AbortSignal.timeout(20_000) });
+      if (response.ok) await response.arrayBuffer();
+    } catch { /* 预下载失败不影响答题，展示时仍可正常请求。 */ }
+  };
+  const warmup = (async () => {
+    await download(roleAtlasUrl(petType));
+    let next = 0;
+    const worker = async () => {
+      while (next < characters.length && !document.hidden) {
+        const role = characters[next++];
+        await download(roleCardUrl(petType, role.id));
+      }
+    };
+    // 两个低优先下载并行，不让图片占满答题和提交请求的连接。
+    await Promise.all([worker(), worker()]);
+  })();
+  imageWarmups.set(petType, warmup);
 }

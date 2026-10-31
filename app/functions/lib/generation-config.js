@@ -1,24 +1,22 @@
-import roleReferences from "./role-references.js";
+import prompts from "./generation-prompts.js";
+import { PET_ROLE_FILES, referenceKey } from "./pet-role-references.js";
 
-// 仅服务端读取。参考图映射与上传脚本共用 role-references.js。
-// 模型 id 以火山方舟控制台为准，换版本只改 model 一处。
 export const GENERATION_CONFIG = {
   model: "doubao-seedream-5-0-flash-260915",
-  size: "2048x2048",
-  outputFormat: "png",
-  // 方舟默认给成品加角标水印；关闭后页面上仍须展示 AI 生成说明（见 doc/custom-generation-setup.md 本版边界）。
-  watermark: false,
-  // 与 doc/prompts/pet-character.md 保持逐字一致，接口测试会检查。
-  prompt: `请参考两张图片，生成一张 1:1、透明背景的 3D 潮玩手办角色插画 PNG。
-
-图一是宠物身份参考。保留照片中可见的动物种类、主要毛色、花纹分布、眼睛颜色、耳朵形状，以及鼻子和嘴周围的特征，让人能认出是同一只宠物。允许根据已知身体部位推理看不清位置的体态特征。
-
-图二是手办风格和造型参考。将图二中的动物替换为图一的宠物，保留图二的面部装饰、表情、服装、姿势、构图和光影。参考图二的圆润比例：超大圆头、短小胖身体、短粗四肢和小爪子，头部约占角色高度的三分之二。
-
-宠物的材质细节：如果主要毛色不超过三种，使用边界清晰的平滑哑光色块。表面呈细腻软胶质感，不出现毛发、绒毛或毛发纹理。如果主要毛色超过三种，允许使用细密、贴合表面的短绒毛质感，表现复杂的毛色和花纹。短绒毛应均匀服帖，不出现长毛、蓬松毛束或明显外翘的毛发。从整体观看时，角色轮廓仍然圆润、饱满、光滑，保持 3D 潮玩手办的整体质感。保留图一宠物的耳朵和口鼻形状，以及可辨认的眼睛颜色；眼睛有明显黑色瞳孔和少量高光。
-
-保留图二的面部神态表情、妆容（妆容在五官中所占比例和位置与图2保持一致）和装扮、眼睛和嘴部（确保左眼、右眼、鼻子和嘴巴对应的服饰的开口数量与图二保持一致，若图2有帽子，也请确保漏出耳朵数量、部位与图2保持一致），保留摄像机角度与构图，确认服饰拆分的各个材质细节匹配，确保露出的耳朵、爪子和尾巴姿态（注意区分脚和尾巴，姿态要分别匹配对应）与图二一致。让宠物特征自然呈现在脸部开口和露出的部位；如果图一是狗狗，保留狗狗的耳朵和口鼻特征。
-
-使用大面积柔光和浅而柔和的阴影，呈现干净的产品棚拍效果。完整展示角色，四周留出适当空间。背景真正透明，不添加文字或水印。`,
-  roleImageKeys: Object.fromEntries(Object.keys(roleReferences).map((roleId) => [roleId, `references/${roleId}.png`])),
+  size: "2048x2048", outputFormat: "png", watermark: false,
+  prompts,
+  roleImageKeys: Object.fromEntries(Object.entries(PET_ROLE_FILES).map(([pet, roles]) =>
+    [pet, Object.fromEntries(Object.keys(roles).map(role => [role, referenceKey(pet, role)]))])),
 };
+
+export function generationProfile(petType) {
+  if (!["cat", "dog"].includes(petType)) return null;
+  return { prompt: GENERATION_CONFIG.prompts[petType], roleImageKeys: GENERATION_CONFIG.roleImageKeys[petType] };
+}
+
+// 仅由下单接口写入；模型与素材配置在本单内固定，不接受浏览器覆盖。
+export function generationSnapshot(result) {
+  const profile = generationProfile(result.petType);
+  return { prompt: profile?.prompt, referenceKey: profile?.roleImageKeys?.[result.roleId], model: GENERATION_CONFIG.model,
+    size: GENERATION_CONFIG.size, outputFormat: GENERATION_CONFIG.outputFormat, watermark: GENERATION_CONFIG.watermark };
+}

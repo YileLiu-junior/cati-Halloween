@@ -1,0 +1,24 @@
+/role-previews/*
+  Cache-Control: public, max-age=86400
+/holo-card/roles/*.webp
+  Cache-Control: public, max-age=86400
+/holo-card/assets/*.webp
+  Cache-Control: public, max-age=86400
+/assets/hero.webp
+  Cache-Control: public, max-age=86400
+/static-cards/*
+  Cache-Control: public, max-age=86400
+/role-thumbnails/*
+  Cache-Control: public, max-age=86400
+/data/quiz-*.json
+  Cache-Control: public, max-age=3600
+/assets/bgm.mp3
+  Cache-Control: public, max-age=86400
+/avatar.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow
+/avatar-admin.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow

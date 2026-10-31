@@ -265,6 +265,8 @@ const winner = TIE_BREAK.find(cid => scores[cid] === Math.max(...Object.values(s
 - 占比天然不均匀是特性不是缺陷：高频角色（南瓜/护士）是"大众猫"，低频角色（法老/木乃伊）天然带稀有度——分享卡上可以做"全站仅 X% 的猫是这个角色"的彩蛋文案。
 - 改了题目或加分后重跑：`python balance-check.py`。
 
+> **2026-10-30 更新**：猫版问答文案已按 `doc/quiz-cat-draft.json` 改写稿重写，全部选项的属性轴/加分重新判定（含签名大分选项），狗版分值同步、文案由 DeepSeek 按同一槽位契约另写；上方 §7 占比表为旧版存档。最新占比跑 `python tools/validate_quiz.py` 查看；`balance-check.py` 现在直接读取题库 JSON，不再需要手工同步加分表。
+
 ## 8. 上线前待办
 
 1. 通读 10 道题文案，按自己语感微调（改文字不改加分）。

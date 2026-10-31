@@ -17,84 +17,24 @@ from collections import Counter
 AXES = ["E", "A", "B", "D", "F", "C"]
 AXIS_NAMES = {"E": "电量", "A": "贴贴", "B": "胆量", "D": "戏精", "F": "干饭", "C": "好奇"}
 
-# 每题 4 个选项：(轴加点, [(角色id, 角色分), ...])；每轴起始 5 分，累加后夹在 0~10
-# 顺序与 quiz-design.md 中的题目一一对应
+# 数据唯一源 = app/public/data/quiz-*.json：文案与加分只改 JSON，本脚本只负责跑三场景模拟
+import json
+from pathlib import Path
+
+_QUIZ = json.loads(
+    (Path(__file__).resolve().parent.parent / "app" / "public" / "data" / "quiz-cat.json").read_text(encoding="utf-8")
+)
+
+# 每题选项：(轴加点, [(角色id, 角色分), ...])；每轴起始 5 分，累加后夹在 0~10
 QUESTIONS = [
-    [  # Q1 下班开门
-        (("A", +3), [("nurse", 2), ("bride", 1), ("zombie", 1)]),
-        (("B", -3), [("mummy", 2), ("ghost", 1)]),
-        (("A", -3), [("vampire", 2), ("pharaoh", 1)]),
-        (("E", -3), [("gargoyle", 2), ("pharaoh", 1), ("bat", 1)]),
-    ],
-    [  # Q2 开饭时刻
-        (("F", +3), [("pumpkin", 3)]),
-        (("F", -3), [("pharaoh", 2), ("vampire", 1), ("witch", 1)]),
-        (("A", +3), [("nurse", 2), ("ghost", 1)]),
-        (("E", +3), [("zombie", 2), ("clown", 1)]),
-    ],
-    [  # Q3 半夜的你家
-        (("E", +3), [("werewolf", 3), ("zombie", 1), ("chainsaw", 1)]),
-        (("A", +3), [("bride", 2), ("nurse", 1)]),
-        (("C", +3), [("witch", 3), ("franken", 1)]),
-        (("B", +3), [("bat", 2), ("pirate", 1), ("clown", 1)]),
-    ],
-    [  # Q4 新东西出现
-        (("C", +3), [("mummy", 2), ("franken", 1)]),
-        (("B", -3), [("ghost", 2), ("mummy", 1)]),
-        (("E", +3), [("chainsaw", 2), ("zombie", 1), ("pirate", 1)]),
-        (("C", -3), [("vampire", 2), ("gargoyle", 1)]),
-    ],
-    [  # Q5 像人时刻
-        (("C", +3), [("franken", 2), ("pharaoh", 1), ("witch", 1)]),
-        (("A", +3), [("nurse", 2), ("bride", 1)]),
-        (("E", +3), [("werewolf", 2), ("clown", 1), ("chainsaw", 1)]),
-        (("D", -3), [("gargoyle", 2), ("vampire", 1)]),
-    ],
-    [  # Q6 摸摸敏感度
-        (("A", +3), [("nurse", 2), ("pumpkin", 1)]),
-        (("D", +3), [("bride", 2), ("ghost", 1)]),
-        (("B", -3), [("mummy", 2), ("ghost", 1)]),
-        (("A", -3), [("vampire", 2), ("pharaoh", 1), ("bat", 1)]),
-    ],
-    [  # Q7 玩耍风格
-        (("E", +3), [("chainsaw", 2), ("zombie", 1), ("werewolf", 1)]),
-        (("F", +3), [("pumpkin", 2), ("pirate", 1)]),
-        (("E", -3), [("gargoyle", 2), ("bat", 1)]),
-        (("D", +3), [("clown", 2), ("witch", 1)]),
-    ],
-    [  # Q8 抢地盘
-        (("B", +3), [("pharaoh", 2), ("pirate", 1)]),
-        (("F", +3), [("pumpkin", 2), ("werewolf", 1)]),
-        (("C", +3), [("franken", 2), ("witch", 1)]),
-        (("A", -3), [("bat", 2), ("vampire", 1)]),
-    ],
-    [  # Q9 外出体检
-        (("D", +3), [("clown", 2), ("bride", 1)]),
-        (("B", +3), [("gargoyle", 2), ("pirate", 1)]),
-        (("B", -3), [("ghost", 2), ("mummy", 1)]),
-        (("C", +3), [("pirate", 3), ("franken", 1)]),
-    ],
-    [  # Q10 镜头感
-        (("D", +3), [("bride", 2), ("clown", 1)]),
-        (("E", +3), [("zombie", 2), ("chainsaw", 1)]),
-        (("D", -3), [("gargoyle", 1), ("bat", 1), ("witch", 1)]),
-        (("C", +3), [("franken", 2), ("witch", 1)]),
-    ],
+    [((o["axis"], o["delta"]), list(o["points"].items())) for o in q["options"]]
+    for q in _QUIZ["questions"]
 ]
 
-CH_NAMES = {
-    "ghost": "乖巧内向的小幽灵咪", "zombie": "活蹦乱跳的小僵尸咪", "chainsaw": "恶魔大爆发的电锯咪",
-    "mummy": "爱躲藏的木乃伊咪", "nurse": "贴心依赖的小护士咪", "vampire": "个性魅力的吸血鬼咪",
-    "franken": "有自己想法的科学怪咪", "pirate": "行侠仗义的海盗咪", "clown": "调皮捣蛋的小丑咪",
-    "bride": "月光新娘咪", "witch": "神秘莫测的女巫咪", "pumpkin": "圆滚滚的南瓜咕噜咪",
-    "werewolf": "月圆变身的狼人咪", "bat": "昼伏夜出的蝙蝠咪", "gargoyle": "稳重如山的石像鬼咪",
-    "pharaoh": "傲娇的法老王咪",
-}
+CH_NAMES = {c["id"]: c["name"] for c in _QUIZ["characters"]}
 
 # 平局时的优先顺序（撞分时取靠前的）
-TIE_BREAK = ["chainsaw", "pumpkin", "ghost", "nurse", "pirate", "clown", "franken",
-             "witch", "werewolf", "bat", "vampire", "pharaoh", "gargoyle", "mummy",
-             "zombie", "bride"]
+TIE_BREAK = _QUIZ["tieBreak"]
 
 
 def score(picks):

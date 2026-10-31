@@ -1,5 +1,5 @@
 // 选项顺序和进度保存在当前浏览器，角色仍由服务端计算。
-import { getState, setState, saveResult, fetchQuiz, petNameCodePoints } from "./store.js";
+import { getState, setState, saveResult, fetchQuiz, petNameCodePoints, prefetchQuizImages } from "./store.js";
 import { track } from "./track.js";
 
 const state = getState();
@@ -10,13 +10,13 @@ const quizError = $("quizError");
 const quizStatus = $("quizStatus");
 
 if (!state.testId || !state.order) {
-  location.href = "/index.html";
+  location.href = "/";
 } else {
   main();
 }
 
 async function main() {
-  prevBtn.onclick = () => { location.href = "/index.html"; };
+  prevBtn.onclick = () => { location.href = "/"; };
   quizError.classList.add("hidden");
   retryBtn.classList.add("hidden");
   quizStatus.textContent = "正在加载题目…";
@@ -126,7 +126,7 @@ async function main() {
   prevBtn.onclick = () => {
     if (busy) return;
     if (qi === 0 || expired || getState().testId !== state.testId) {
-      location.href = "/index.html";
+      location.href = "/";
       return;
     }
     qi -= 1;
@@ -170,7 +170,7 @@ async function main() {
       saveResult({ ...state, result: data });
       if (getState().testId === state.testId) setState({ result: data, currentQ: questions.length });
       track("quiz_complete", { roleId: data.roleId });
-      location.href = `/result.html?testId=${encodeURIComponent(state.testId)}`;
+      location.href = `/result?testId=${encodeURIComponent(state.testId)}`;
     } catch {
       if (!isCurrentSession()) return;
       showError("揭晓失败，答案已保留，请重试", true);
@@ -182,4 +182,5 @@ async function main() {
 
   retryBtn.onclick = () => { if (!busy) submit(); };
   render();
+  prefetchQuizImages(quiz.characters, state.petType);
 }

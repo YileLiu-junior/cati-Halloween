@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><meta name="theme-color" content="#21191d" /><meta name="referrer" content="no-referrer" /><meta name="robots" content="noindex,nofollow" /><title>领取万圣节头像 · PETI</title><link rel="stylesheet" href="/css/style.css" /></head>
+<body><main class="page avatar-page"><a class="result-home" href="/">PETI 首页</a><p id="avatarEnvironment" class="custom-note hidden">独立测试环境 · 无真实收款或退款</p><p class="custom-kicker">毛孩子的万圣节头像</p><h1 id="avatarPet">查看定制订单</h1><p id="avatarError" class="error hidden" role="alert"></p>
+<section id="avatarOrder"><p id="avatarMessage" role="status" aria-live="polite"></p><p id="avatarAmount" class="custom-note"></p><figure id="avatarOutput" class="hidden"><img id="avatarImage" alt="毛孩子的万圣节头像" /></figure><div class="avatar-actions"><a id="downloadAvatar" class="primary hidden">保存头像</a><button id="refreshAvatar" class="secondary" type="button">刷新进度</button></div><details><summary>订单信息</summary><code id="avatarReference"></code><p class="custom-note">专属链接用于领取头像与申请售后，请妥善保存。</p></details>
+      <section id="refundSection" class="avatar-support hidden" aria-labelledby="refundHeading">
+        <h3 id="refundHeading">需要帮助？</h3>
+        <p id="refundHint" class="custom-note"></p>
+        <button id="openRefundBtn" class="text-button" type="button" aria-expanded="false" aria-controls="refundForm">申请退款或核对付款</button>
+        <form id="refundForm" class="hidden">
+          <label class="field"><span>申请原因</span><select id="refundReason"><option value="not_delivered">已付款，未收到头像</option><option value="generation_failed">头像生成失败</option><option value="duplicate_payment">重复付款</option><option value="image_quality">头像效果有问题</option><option value="payment_unconfirmed">已付款，仍未识别</option></select></label>
+          <label class="field"><span>补充说明（选填）</span><textarea id="refundDetails" maxlength="500" rows="3"></textarea></label>
+          <label class="field"><span>通知方式（选填）</span><input id="refundContact" maxlength="120" autocomplete="off" placeholder="邮箱或爱发电昵称" /></label>
+          <button id="submitRefundBtn" class="secondary" type="submit">提交申请</button>
+          <p class="custom-note">订单信息会自动带入。提交后暂停新的生成与重试。24 小时内首次审核，到账时间以退款渠道为准。</p>
+        </form>
+        <button id="withdrawRefundBtn" class="text-button hidden" type="button">撤回退款申请</button>
+        <p id="refundStatus" role="status" aria-live="polite"></p>
+      </section>
+</section></main><script type="module" src="/js/avatar.js"></script></body></html>

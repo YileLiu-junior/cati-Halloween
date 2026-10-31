@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { PNG } from "pngjs";
 
 async function answerN(page, n, pick = 0) {
   for (let i = 0; i < n; i++) {
@@ -90,6 +91,32 @@ test.describe("首页与答题", () => {
     expect(Object.keys((await readState(page)).answers)).toHaveLength(1);
   });
 
+  test("答题期间预下载图集与结果卡，不阻塞继续作答", async ({ page }) => {
+    const downloaded = new Set();
+    page.on("requestfinished", request => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith("/static-cards/") || path === "/role-thumbnails/20261030-v2/cat/atlas.webp") downloaded.add(path);
+    });
+    await startQuiz(page, "提前缓存");
+    await answerN(page, 1);
+    await expect.poll(() => downloaded.size, { timeout: 30000 }).toBe(17);
+    await answerN(page, 9);
+    await expect(page.locator("#roleName")).toBeVisible();
+    await expect(page.locator("#saveCardBtn")).toBeEnabled();
+    const image = await page.locator("#roleCardImage").evaluate(img => ({ url: img.currentSrc, width: img.naturalWidth }));
+    expect(image.width).toBe(900);
+    expect(downloaded.has(new URL(image.url).pathname)).toBe(true);
+  });
+
+  test("省流量模式不会后台预下载全部卡片", async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(navigator, "connection", { value: { saveData: true }, configurable: true }));
+    const downloads = [];
+    page.on("request", request => { if (/\/(static-cards|role-thumbnails)\//.test(new URL(request.url()).pathname)) downloads.push(request.url()); });
+    await startQuiz(page, "省流量");
+    await answerN(page, 1);
+    expect(downloads).toHaveLength(0);
+  });
+
   test("另一个标签开始新测后，旧答题页不能覆盖新进度", async ({ page, context }) => {
     await startQuiz(page, "馒头");
     const old = await readState(page);
@@ -162,135 +189,164 @@ test.describe("结果、历史与接口", () => {
   test("结果顺序符合角色展示层级，免费卡与雷达已渲染，无公开编号", async ({ page }) => {
     await seedPage(page, session);
     await expect(page.locator("#roleName")).toHaveText(/咪$/);
-    await expect(page.locator("#rarity")).toContainText("全站仅");
+    await expect(page.locator(".result-lead")).toHaveText("馒头万圣节会扮演的角色是…");
+    await expect(page.locator("#rarity")).toHaveText(`抽中该万圣节喵喵卡的概率为 ${session.result.rarityPct}%`);
     await expect(page.locator("#publicId")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText("公开编号");
     await expect(page.locator("#petNameText")).toHaveText("馒头");
-    await expect(page.locator("#holoCard")).toBeVisible();
-    for (const selector of ["#radar", "#cardCanvas"]) {
+    await expect(page.locator("#roleCardImage")).toBeVisible();
+    for (const selector of ["#radar"]) {
       await expect.poll(() => page.$eval(selector, (canvas) => canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data.some((value) => value !== 0))).toBe(true);
     }
     const rarity = await page.locator("#rarity").boundingBox();
+    const lead = await page.locator(".result-lead").boundingBox();
     const role = await page.locator("#roleName").boundingBox();
-    const card = await page.locator("#holoCard").boundingBox();
+    const card = await page.locator("#roleCardImage").boundingBox();
     const quote = await page.locator("#quote").boundingBox();
     const radar = await page.locator("#radar").boundingBox();
-    expect(rarity.y).toBeLessThan(role.y);
+    expect(lead.y).toBeLessThan(role.y);
     expect(role.y).toBeLessThan(card.y);
     expect(card.y + card.height).toBeLessThanOrEqual(quote.y);
-    expect(quote.y).toBeLessThan(radar.y);
+    expect(quote.y).toBeLessThan(rarity.y);
+    expect(rarity.y).toBeLessThan(radar.y);
   });
 
-  test("16 个结果角色均有对应的炫彩卡图片和线稿", async ({ page, request }) => {
+  test("16 个角色都有高清静态卡片和轻量缩略图", async ({ page, request }) => {
     const quiz = await (await request.get("/data/quiz-cat.json")).json();
     for (const role of quiz.characters) {
-      for (const suffix of [".png", "-line.png"]) {
-        expect((await request.get(`/holo-card/roles/${role.id}${suffix}`)).ok()).toBe(true);
+      for (const folder of ["static-cards", "role-thumbnails"]) {
+        const response = await request.get(`/${folder}/20261030-v2/cat/${role.id}.webp`);
+        expect(response.ok()).toBe(true);
+        expect(response.headers()["content-type"]).toContain("image/webp");
       }
     }
     for (const role of [quiz.characters[0], quiz.characters[8]]) {
       const result = { ...session.result, roleId: role.id, roleName: role.name };
       await seedPage(page, { ...session, result, history: [] });
-      const frame = page.frameLocator("#holoCard");
-      await expect(frame.locator("#stage")).toBeVisible();
-      await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.config?.assets?.subject || el.contentWindow?.__holo?.fallback3d && el.contentWindow?.location.search), { timeout: 30000 }).toContain(role.id);
+      await expect(page.locator("#roleCardImage")).toHaveAttribute("src", `/static-cards/20261030-v2/cat/${role.id}.webp`);
       await expect(page.locator("#saveCardBtn")).toBeEnabled();
-      if (role.id === "ghost") {
-        const box = await frame.locator("#stage").boundingBox();
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.down();
-        await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
-        await page.mouse.up();
-        await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.getState?.().auto)).toBe(true);
-      }
+      expect(await page.locator("#roleCardImage").evaluate(img => [img.naturalWidth, img.naturalHeight])).toEqual([900, 1380]);
     }
   });
 
-  test("卡片超出十度时归位，键盘倾斜也受限", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
+  test("分享结果先预览，再保存包含姓名台词雷达和描述的完整 PNG", async ({ page }) => {
     await seedPage(page, session);
-    const iframe = page.locator("#holoCard");
-    await expect.poll(() => iframe.evaluate((el) => el.contentWindow?.__holo?.ready), { timeout: 30000 }).toBe(true);
-    const frame = page.frameLocator("#holoCard");
-    const stage = frame.locator("#stage");
-    const box = await stage.boundingBox();
-    const angle = () => iframe.evaluate((el) => {
-      const { x, y } = el.contentWindow.__holo.root.rotation;
-      return Math.hypot(x, y);
+    await expect(page.locator("#saveCardBtn")).toHaveText("分享结果");
+    await page.evaluate(() => {
+      window.__posterText = [];
+      const original = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
+        if (this.canvas.id === "cardCanvas") window.__posterText.push(text);
+        return original.call(this, text, ...args);
+      };
     });
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2 + 15, box.y + box.height / 2 + 10);
-    await expect.poll(angle).toBeGreaterThan(0.03);
-    expect(await angle()).toBeLessThanOrEqual(Math.PI / 18 + 0.001);
-    await page.mouse.move(box.x + box.width / 2 + 100, box.y + box.height / 2 + 80);
-    await expect.poll(angle).toBeLessThan(0.005);
-    await page.mouse.up();
-    await stage.focus();
-    for (let i = 0; i < 8; i++) await stage.press("ArrowRight");
-    expect(await angle()).toBeLessThanOrEqual(Math.PI / 18 + 0.001);
-  });
-
-  test("保存免费卡导出非空 PNG", async ({ page }) => {
-    await seedPage(page, session);
-    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#saveCardBtn").click()]);
+    await page.locator("#saveCardBtn").click();
+    await expect(page.locator("#shareDialog")).toBeVisible();
+    await expect.poll(() => page.locator("#sharePreviewImage").evaluate(img => img.complete && img.naturalWidth)).toBe(900);
+    const drawnText = await page.evaluate(() => window.__posterText.join(""));
+    for (const text of [session.petName, session.result.roleName, session.result.quote, session.result.tagline, ...session.result.shortLines]) expect(drawnText).toContain(text);
+    await expect(page.locator("#sharePreviewImage")).toHaveAttribute("alt", /电量.*贴贴.*胆量.*戏精.*干饭.*好奇/);
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#saveShareImage").click()]);
     expect(download.suggestedFilename()).toMatch(/\.png$/);
     expect((await stat(await download.path())).size).toBeGreaterThan(10_000);
+    const png = PNG.sync.read(await readFile(await download.path()));
+    expect(png.width).toBe(900);
+    expect(png.height).toBeGreaterThan(1600);
+    await download.saveAs("shots/result-share-poster-20261030.png");
+    await page.screenshot({ path: "shots/result-share-dialog-20261030.png" });
+    await page.locator("#shareMomentsBtn").click();
+    await expect(page.locator("#momentsGuide")).toContainText("从相册选择这张图片后发表");
+    await page.locator("#closeShareBtn").click();
+    await expect(page.locator("#saveCardBtn")).toBeFocused();
   });
 
-  test("结果页卡片、名字和性格解读保持居中", async ({ page }) => {
+  test("角色卡可打开高清大图、缩放和返回，概率说明支持悬停与键盘", async ({ page }) => {
+    await seedPage(page, session);
+    await expect(page.locator("#saveCardBtn")).toBeEnabled();
+    await page.locator("#rarityInfo").hover();
+    await expect(page.locator("#rarityHelp")).toContainText("并非实时用户统计");
+    await page.locator("#roleName").hover();
+    await expect(page.locator("#rarityHelp")).toBeHidden();
+    await page.locator("#rarityInfo").focus();
+    await expect(page.locator("#rarityHelp")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#rarityHelp")).toBeHidden();
+    await page.locator("#roleCardImage").click();
+    await expect(page.locator("#imageViewer")).toBeVisible();
+    await expect.poll(() => page.locator("#viewerImage").evaluate(img => img.naturalWidth)).toBe(900);
+    const initial = await page.locator("#viewerImage").evaluate(img => img.getBoundingClientRect().width);
+    await page.locator("#zoomInImage").click();
+    expect(await page.locator("#viewerImage").evaluate(img => img.getBoundingClientRect().width)).toBeGreaterThan(initial);
+    await expect(page.locator("#openOriginalImage")).toHaveAttribute("href", /\/static-cards\/.+\.webp$/);
+    await page.locator("#resetImageZoom").click();
+    await expect(page.locator("#resetImageZoom")).toHaveText("1×");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#imageViewer")).toBeHidden();
+    await expect(page.locator("#viewCardLink")).toBeFocused();
+  });
+
+  test("微信手机页可点击概率说明，长按保存引导保留完整图片", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36 MicroMessenger/8.0" });
+    const page = await context.newPage();
+    try {
+      await seedPage(page, { ...session, petType: "dog", petName: "一二三四五六七八九十十一" });
+      await expectNoOverflow(page);
+      await expect(page.locator("#rarity")).toContainText("汪汪卡");
+      await page.locator("#rarityInfo").tap();
+      await expect(page.locator("#rarityHelp")).toBeVisible();
+      await page.locator("#rarityInfo").tap();
+      await expect(page.locator("#rarityHelp")).toBeHidden();
+      await page.locator("#saveCardBtn").click();
+      await expect(page.locator("#saveShareImage")).toBeVisible();
+      await page.locator("#saveShareImage").tap();
+      await expect(page.locator("#shareStatus")).toHaveText("请长按上方图片，选择保存到手机。");
+      await page.locator("#previewShareLarge").tap();
+      await expect(page.locator("#imageViewer")).toBeVisible();
+      await page.locator("#zoomInImage").tap();
+      await expect(page.locator("#resetImageZoom")).toHaveText("1.5×");
+      await page.locator("#closeImageViewer").tap();
+      await expect(page.locator("#shareDialog")).toBeVisible();
+      await page.screenshot({ path: "shots/result-mobile-share-20261030.png" });
+    } finally { await context.close(); }
+  });
+
+  test("静态卡片尺寸适合手机并保持居中", async ({ page }) => {
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await seedPage(page, session);
       await expectNoOverflow(page);
-      const name = await page.locator("#petNameText").boundingBox();
+      const name = await page.locator(".result-header").boundingBox();
       const traits = await page.locator(".traits-layout").boundingBox();
-      const card = await page.locator("#holoCard").boundingBox();
+      const card = await page.locator("#roleCardImage").boundingBox();
       expect(Math.abs(name.x + name.width / 2 - width / 2)).toBeLessThan(2);
       expect(Math.abs(traits.x + traits.width / 2 - width / 2)).toBeLessThan(2);
-      expect(card.width / card.height).toBeCloseTo(0.75 / 1.15, 2);
-      await expect.poll(() => page.locator("#holoCard").evaluate((el) => el.contentWindow?.__holo?.ready), { timeout: 30000 }).toBe(true);
-      const cardState = await page.locator("#holoCard").evaluate((el) => {
-        const h = el.contentWindow.__holo;
-        return { stretch: h.uniforms.uCardStretch.value, factor: h.uniforms.uSubjectFactor.value, sceneScale: h.root.children[0].scale.x, heightScale: h.root.children[0].scale.y };
-      });
-      expect(cardState.stretch).toBeCloseTo(0.75 / (908 / 1732), 3);
-      expect(cardState.sceneScale).toBeCloseTo(cardState.stretch, 3);
-      expect(cardState.heightScale).toBeCloseTo(1.15, 3);
-      expect(cardState.factor).toBeGreaterThan(1);
-      expect(cardState.factor).toBeLessThanOrEqual(2);
-      const background = await page.locator("#holoCard").evaluate((el) => ({
-        card: el.contentWindow.getComputedStyle(el.contentDocument.documentElement).backgroundImage,
-        page: getComputedStyle(document.body).backgroundImage,
-      }));
-      expect(background.card).toBe(background.page);
-      await page.evaluate(() => window.scrollBy(0, 100));
-      await expect.poll(() => page.locator("#holoCard").evaluate((el) => {
-        const y = parseFloat(el.contentWindow.getComputedStyle(el.contentDocument.documentElement).backgroundPositionY);
-        return Math.abs(y + el.getBoundingClientRect().top);
-      })).toBeLessThan(1);
+      expect(Math.abs(card.x + card.width / 2 - width / 2)).toBeLessThan(2);
+      expect(card.width).toBeLessThanOrEqual(250);
+      expect(card.height).toBeLessThan(390);
+      expect(card.width / card.height).toBeCloseTo(900 / 1380, 2);
     }
   });
 
-  test("不支持 WebGL 时仍完整显示拉长的角色卡", async ({ page }) => {
+  test("禁用 WebGL 后仍能展示并保存静态卡片", async ({ page }) => {
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (type, ...args) {
-        return type.startsWith("webgl") ? null : original.call(this, type, ...args);
+        if (type.startsWith("webgl")) throw new Error("WebGL must not be used");
+        return original.call(this, type, ...args);
       };
     });
     await seedPage(page, session);
-    const card = page.frameLocator("#holoCard").locator(".flipper3d");
-    await expect(card).toBeVisible();
-    const ratio = await card.evaluate((el) => el.offsetWidth / el.offsetHeight);
-    expect(ratio).toBeCloseTo(0.75 / 1.15, 2);
-    const backgroundHeight = await card.locator(".layer3d-background img").evaluate((img) => img.offsetHeight / img.parentElement.offsetHeight);
-    expect(backgroundHeight).toBeCloseTo(1, 2);
-    await expect.poll(() => card.locator(".layer3d img").nth(1).evaluate((img) => img.naturalWidth && img.style.height)).toBeTruthy();
+    await expect(page.locator("#roleCardImage")).toBeVisible();
+    await expect(page.locator("#saveCardBtn")).toBeEnabled();
+    await expect(page.locator("iframe")).toHaveCount(0);
   });
 
   test("改名有保存与取消，成功状态明确，重新查看历史保留新名", async ({ page }) => {
     await seedPage(page, session);
+    await page.locator("#saveCardBtn").click();
+    await expect(page.locator("#saveShareImage")).toBeVisible();
+    const previousPoster = await page.locator("#saveShareImage").getAttribute("href");
+    await page.locator("#closeShareBtn").click();
     await page.locator("#renameBtn").click();
     await page.locator("#petNameInput").fill("煤球");
     await page.locator("#cancelNameBtn").click();
@@ -301,6 +357,10 @@ test.describe("结果、历史与接口", () => {
     await expect(page.locator("#petNameText")).toHaveText("煤球");
     await expect(page.locator("#petNameInput")).toBeHidden();
     await expect(page.locator("#nameStatus")).toHaveText("名字已保存");
+    await page.locator("#saveCardBtn").click();
+    await expect(page.locator("#sharePreviewImage")).toHaveAttribute("alt", /^煤球的测评结果/);
+    expect(await page.locator("#saveShareImage").getAttribute("href")).not.toBe(previousPoster);
+    await page.locator("#closeShareBtn").click();
     await page.goto("/");
     await expect(page.locator("#historyList")).toContainText("煤球");
     await page.locator("a.history-item").filter({ hasText: "煤球" }).click();
@@ -351,7 +411,7 @@ test.describe("结果、历史与接口", () => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       newSession = await (await page.request.post("/api/sessions", {
-        data: { petType: "cat", quizVersion: "cat-2026v1", source: "test" },
+        data: { petType: "cat", quizVersion: "cat-2026v2", source: "test" },
       })).json();
       await page.evaluate((state) => localStorage.setItem("peti:v1", JSON.stringify(state)), {
         ...original, ...newSession, petName: "团子", answers: {}, currentQ: 0, result: null,
@@ -402,7 +462,7 @@ test.describe("结果、历史与接口", () => {
       const description = await page.locator("#shortLines").boundingBox();
       expect(radar.x + radar.width).toBeLessThanOrEqual(description.x + 1);
       expect(radar.width).toBeLessThanOrEqual(180);
-      const card = await page.locator("#holoCard").boundingBox();
+      const card = await page.locator("#roleCardImage").boundingBox();
       expect(Math.abs(card.x + card.width / 2 - width / 2)).toBeLessThanOrEqual(2);
     }
     await page.setViewportSize({ width: 390, height: 500 });
@@ -419,13 +479,13 @@ test.describe("结果、历史与接口", () => {
 
 test.describe("接口校验与狗版", () => {
   test("quizVersion 与 petType 不匹配返回 PARAM_MISSING", async ({ request }) => {
-    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v1", source: "test" } });
+    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v2", source: "test" } });
     expect(response.status()).toBe(400);
     expect((await response.json()).code).toBe("PARAM_MISSING");
   });
 
   test("petName 超 12 码点返回 PET_NAME_TOO_LONG", async ({ request }) => {
-    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v1", source: "test" } })).json();
+    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v2", source: "test" } })).json();
     const response = await request.post("/api/results", { data: { ...session, optionIds: Array.from({ length: 10 }, (_, i) => `q${i + 1}a`), petName: "一二三四五六七八九十十一二" } });
     expect((await response.json()).code).toBe("PET_NAME_TOO_LONG");
   });
