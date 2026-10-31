@@ -132,6 +132,16 @@ test("限时免费角标可展开说明，角标文案显示全站剩余份数",
   await expect(page.locator("#freeQuotaHelp")).toBeHidden();
 });
 
+test("免费额度说明使用服务端配置的总额度", async ({ page, request }) => {
+  await resultPage(page, request);
+  const free = quota({ total: 10, used: 0, remaining: 10 });
+  await mockFreeFlow(page, { config: serviceConfig({ free }), free });
+  await page.locator("#customBtn").click();
+  await expect(page.locator("#freeQuotaBadge")).toContainText("剩 10 份");
+  await page.locator("#freeQuotaBadge").click();
+  await expect(page.locator("#freeQuotaHelp")).toContainText("全站限量 10 份");
+});
+
 test("全局免费额度耗尽时角标关闭且生成按钮禁用", async ({ page, request }) => {
   await resultPage(page, request);
   await mockFreeFlow(page, { config: serviceConfig({ free: quota({ used: 1000, remaining: 0, exhausted: true, reason: "QUOTA_EXHAUSTED" }) }), free: quota({ used: 1000, remaining: 0, exhausted: true, reason: "QUOTA_EXHAUSTED" }) });
@@ -165,7 +175,9 @@ test("上传照片并同意后免费按钮可用，首次请求 regenerate=false
   await expect.poll(() => flow.calls.posts.length).toBe(1);
   expect(flow.calls.posts[0]).toMatchObject({ testId: expect.any(String), photoId: "test-photo", roleId: expect.any(String), regenerate: false });
   expect(flow.calls.posts[0].browserId).toMatch(/^[0-9a-f-]{36}$/i);
-  await expect(page.locator("#generationMessage")).toContainText("免费生成已提交");
+  await expect(page.locator("#generationProgress")).toBeVisible();
+  await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "active");
+  await expect(page.locator("#genStepWait")).toHaveAttribute("data-state", "pending");
 });
 
 test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷", async ({ page, request }) => {
@@ -174,7 +186,9 @@ test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷",
   await page.clock.install();
   await uploadPhoto(page);
   await page.locator("#startFreeBtn").click();
-  await expect(page.locator("#generationMessage")).toContainText("免费生成已提交");
+  await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "active");
+  // 等首轮渲染完成并挂上 5 秒轮询，再推进时钟。
+  await expect(page.locator("#checkJobBtn")).toBeVisible();
   expect(flow.calls.gets).toBe(1);
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   flow.state.free = quota({ used: 13, remaining: 987, browserUsed: 1, browserRemaining: 1 });
@@ -185,6 +199,70 @@ test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷",
   await expect(page.locator("#surveyHeading")).toBeFocused();
   await expect(page.locator("#satisfiedYes")).toBeVisible();
   await expect(page.locator("#satisfiedNo")).toBeVisible();
+});
+
+test("生成中切换到等待图片生成，完成后隐藏两步进度", async ({ page, request }) => {
+  await resultPage(page, request);
+  const flow = await mockFreeFlow(page, {
+    post: { order: freeOrder({ status: "generating" }), free: quota(), feedback: null, idempotent: false },
+  });
+  await page.clock.install();
+  await uploadPhoto(page);
+  await page.locator("#startFreeBtn").click();
+  // 先等生成请求真正返回，避免轮询计时器与响应竞速。
+  await expect(page.locator("#genStepWait")).toHaveAttribute("data-state", "active");
+  await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "done");
+  await expect(page.locator("#generationLive")).toHaveText("正在等待图片生成");
+  flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
+  await page.clock.fastForward(5000);
+  await expect(page.locator("#customImage")).toBeVisible();
+  await expect(page.locator("#generationProgress")).toBeHidden();
+});
+
+test("点击生成的头像打开大图查看器，保留长按保存与打开原图", async ({ page, request }) => {
+  await resultPage(page, request);
+  await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }) });
+  await page.locator("#customBtn").click();
+  await expect(page.locator("#customImage")).toBeVisible();
+  await page.locator("#viewCustomLink").click();
+  await expect(page.locator("#imageViewer")).toBeVisible();
+  await expect(page.locator("#imageViewerTitle")).toHaveText("万圣节头像大图");
+  await expect(page.locator("#viewerImage")).toHaveAttribute("src", /^blob:/);
+  await expect(page.locator("#openOriginalImage")).toHaveAttribute("href", /^blob:/);
+  await expect(page.locator(".viewer-note")).toContainText("长按图片可保存");
+});
+
+test("不满意与满意问卷都能返回重选，重新提交会覆盖本次记录", async ({ page, request }) => {
+  await resultPage(page, request);
+  const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
+  await page.locator("#customBtn").click();
+  await page.locator("#satisfiedNo").click();
+  await expect(page.locator("#unsatisfiedGuide")).toBeVisible();
+  await page.locator("#surveyBackBtn").click();
+  await expect(page.locator("#satisfactionChoices")).toBeVisible();
+  await expect(page.locator("#unsatisfiedGuide")).toBeHidden();
+  await page.locator("#satisfiedYes").click();
+  await expect(page.locator("#priceQuestion")).toBeVisible();
+  await page.locator("#surveyBackBtn").click();
+  await expect(page.locator("#satisfactionChoices")).toBeVisible();
+  await page.locator("#satisfiedNo").click();
+  await expect.poll(() => flow.calls.feedbacks.length).toBe(3);
+  expect(flow.calls.feedbacks[2]).toMatchObject({ satisfied: false, priceFen: null });
+});
+
+test("打赏文案强调紫色下划线的“打赏”并跟随当前价格", async ({ page, request }) => {
+  await resultPage(page, request);
+  await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), config: serviceConfig({ amountFen: 180 }) });
+  await page.locator("#customBtn").click();
+  const tip = page.locator("#tipAuthorLink");
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("喜欢这种头像？花1.8元打赏作者");
+  const style = await page.locator(".tip-action").evaluate(el => {
+    const computed = getComputedStyle(el);
+    return { color: computed.color, decoration: computed.textDecorationLine, thickness: computed.textDecorationThickness };
+  });
+  expect(style.decoration).toContain("underline");
+  expect(style.color).toBe("oklch(0.82 0.12 316)");
 });
 
 test("满意后询问价格，点 2 元提交 priceFen=200", async ({ page, request }) => {
@@ -223,7 +301,8 @@ test("不满意时换角色再试保留照片，回到角色步骤后再次生�
   await page.clock.install();
   await uploadPhoto(page);
   await page.locator("#startFreeBtn").click();
-  await expect(page.locator("#generationMessage")).toContainText("免费生成已提交");
+  await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "active");
+  await expect(page.locator("#checkJobBtn")).toBeVisible();
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   await page.clock.fastForward(5000);
   await expect(page.locator("#surveyStep")).toBeVisible();

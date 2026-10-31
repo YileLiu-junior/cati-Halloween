@@ -126,8 +126,6 @@ export function initResultMedia(getEntry) {
     if ($("saveCardBtn").disabled) return;
     if (!share.open) share.showModal();
     lockPage();
-    $("momentsGuide").classList.add("hidden");
-    $("shareMomentsBtn").setAttribute("aria-expanded", "false");
     $("shareStatus").textContent = posterUrl ? "" : "正在整理分享图片…";
     try {
       posterPromise ||= makePoster().catch(error => { posterPromise = null; throw error; });
@@ -140,7 +138,6 @@ export function initResultMedia(getEntry) {
       $("saveShareImage").href = url;
       $("saveShareImage").download = `喵灵万圣节-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-测评结果.png`;
       $("saveShareImage").classList.remove("hidden");
-      $("shareMomentsBtn").disabled = false;
       $("shareStatus").textContent = "";
     } catch (error) { $("shareStatus").textContent = error.message; }
   });
@@ -151,19 +148,14 @@ export function initResultMedia(getEntry) {
     if (isWeChat) { event.preventDefault(); $("shareStatus").textContent = "请长按上方图片，选择保存到手机。"; }
     else $("shareStatus").textContent = "已发起保存；也可以长按预览图片保存。";
   });
-  $("shareMomentsBtn").addEventListener("click", () => {
-    $("momentsGuide").classList.remove("hidden");
-    $("shareMomentsBtn").setAttribute("aria-expanded", "true");
-    $("momentsGuide").scrollIntoView({ block: "nearest" });
-  });
   function invalidate() {
     if (posterUrl) URL.revokeObjectURL(posterUrl);
     posterPromise = posterUrl = undefined;
     $("sharePreview").classList.add("hidden");
     $("previewShareLarge").classList.add("hidden");
     $("saveShareImage").classList.add("hidden");
-    $("shareMomentsBtn").disabled = true;
   }
   window.addEventListener("pagehide", event => { if (!event.persisted) invalidate(); });
-  return { invalidate };
+  // 定制头像复用同一套大图查看器，保留双指缩放、长按保存和“打开原图”。
+  return { invalidate, viewImage };
 }

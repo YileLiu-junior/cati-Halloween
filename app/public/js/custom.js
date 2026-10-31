@@ -9,8 +9,8 @@ const TEXT = {
   badge: (remaining) => `限时免费 · 剩 ${remaining} 份`,
   closed: "免费通道已关闭",
   maintenanceBadge: "免费生图维护中",
-  helpNormal: "现在生成头像免费：每个浏览器最多 2 次，全站限量 1000 份。生成失败或超时会退还次数。",
-  helpClosed: "这轮 1000 份免费头像已经领完啦。角色卡和测评结果仍然可以保存，感谢参与。",
+  helpNormal: (data) => `现在生成头像免费：每个浏览器最多 ${data?.perBrowser ?? 2} 次，全站限量 ${data?.total ?? 1000} 份。生成失败或超时会退还次数。`,
+  helpClosed: (data) => `这轮 ${data?.total ?? 1000} 份免费头像已经领完啦。角色卡和测评结果仍然可以保存，感谢参与。`,
   browserLimit: "这台浏览器已经免费生成过 2 次了。可以换个浏览器，或等下一轮开放再来。",
   serviceNotConfigured: "免费生图通道正在准备中，请稍后再来。",
   maintenance: "生图服务正在维护，暂时无法开始生成，请稍后再试。已填写的照片和选择会保留。",
@@ -24,7 +24,7 @@ const TEXT = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function initCustom(getEntry) {
+export function initCustom(getEntry, openViewer) {
   const dialog = $("customDialog");
   let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
   let free = null, feedback = null, browserId = null, regenerating = false;
@@ -75,16 +75,16 @@ export function initCustom(getEntry) {
       ? TEXT.closed
       : unavailable ? TEXT.maintenanceBadge : TEXT.badge(data?.remaining ?? 0);
     // 维护与未配置都先说明原因，避免角标显示可用的同时按钮点不动。
-    $("freeQuotaHelp").textContent = closed ? TEXT.helpClosed
+    $("freeQuotaHelp").textContent = closed ? TEXT.helpClosed(data)
       : data?.enabled === false ? TEXT.serviceNotConfigured
       : unavailable ? (config?.free?.reason === "DELIVERY_UNAVAILABLE" ? TEXT.maintenance : TEXT.serviceNotConfigured)
-      : TEXT.helpNormal;
+      : TEXT.helpNormal(data);
   }
   function renderQuotaNote() {
     const note = $("freeQuotaNote");
     const data = freeState();
     if (!data) { note.textContent = ""; return; }
-    if (data.exhausted) { note.textContent = TEXT.helpClosed; return; }
+    if (data.exhausted) { note.textContent = TEXT.helpClosed(data); return; }
     if (data.browserExhausted) { note.textContent = TEXT.browserLimit; return; }
     if (!config?.available) {
       // 维护原因以 /api/config 为准；订单查询接口只返回额度快照。
@@ -92,7 +92,7 @@ export function initCustom(getEntry) {
       note.textContent = reason === "DELIVERY_UNAVAILABLE" ? TEXT.maintenance : TEXT.serviceNotConfigured;
       return;
     }
-    if (data.browserRemaining == null) { note.textContent = TEXT.helpNormal; return; }
+    if (data.browserRemaining == null) { note.textContent = TEXT.helpNormal(data); return; }
     note.textContent = `这台浏览器还可以免费生成 ${data.browserRemaining} 次。`;
   }
   function quotaAllowsRegenerate() {
@@ -263,6 +263,8 @@ export function initCustom(getEntry) {
     show("priceQuestion", false);
     show("unsatisfiedGuide", false);
     show("satisfactionChoices", false);
+    // 选过之后仍可回到“满意 / 不太满意”重选，提交会覆盖同一次生成的记录。
+    show("surveyBackBtn", Boolean(feedback));
     $("surveyStatus").textContent = "";
     if (surveyFocusAttempt !== order.attemptId) {
       surveyFocusAttempt = order.attemptId;
@@ -294,11 +296,26 @@ export function initCustom(getEntry) {
     if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show("checkJobBtn"); return; }
     pollTimer = setTimeout(() => run(checkOrder), 5000);
   }
+  // 生成中只展示两个阶段：请求已发出、等待出图。完成后整块隐藏。
+  function renderGenerationProgress(phase) {
+    if (!phase) { show("generationProgress", false); return; }
+    show("generationProgress");
+    const requestState = phase === "waiting" ? "done" : "active";
+    const waitState = phase === "waiting" ? "active" : "pending";
+    for (const [id, state] of [["genStepRequest", requestState], ["genStepWait", waitState]]) {
+      const item = $(id);
+      item.dataset.state = state;
+      if (state === "active") item.setAttribute("aria-current", "step");
+      else item.removeAttribute("aria-current");
+    }
+    $("generationLive").textContent = phase === "waiting" ? "正在等待图片生成" : "正在发送生成请求";
+  }
   async function renderOrder() {
     clearTimeout(pollTimer);
     progress("");
     resetOutput();
     show("retryJobBtn", false); show("checkJobBtn", false); show("tipAuthorLink", false);
+    renderGenerationProgress(null);
     if (!order) return;
     if (!order.free) {
       stage("generate");
@@ -319,9 +336,9 @@ export function initCustom(getEntry) {
     if (["unlocked", "queued", "generating"].includes(order.status)) {
       stage("generate");
       $("customTitle").textContent = "正在生成万圣节头像";
-      $("generationMessage").textContent = order.status === "unlocked"
-        ? "免费生成已提交，正在排队制作它的万圣节头像。"
-        : order.status === "queued" ? "头像已排队，正在等待生成，通常需要几十秒至几分钟。" : "正在制作它的万圣节头像，通常需要几十秒至几分钟。离开页面也会继续生成。";
+      // 阶段文案由两步进度承担，避免同一句状态重复两遍。
+      renderGenerationProgress(order.status === "generating" ? "waiting" : "sending");
+      $("generationMessage").textContent = "";
       show("checkJobBtn");
       schedulePoll();
       return;
@@ -384,7 +401,13 @@ export function initCustom(getEntry) {
   }
   async function startFreeOrder(regenerate = false) {
     if (busy) return;
-    busy = true; error(""); progress("正在提交免费生成…"); buttons();
+    busy = true; error(""); progress("");
+    // 请求还没返回时也要让用户看到第一步在走。
+    stage("generate");
+    renderGenerationProgress("sending");
+    $("generationMessage").textContent = "";
+    show("checkJobBtn", false); show("retryJobBtn", false);
+    buttons();
     try {
       const data = await api("/api/free-orders", {
         testId: entry.testId,
@@ -402,6 +425,16 @@ export function initCustom(getEntry) {
       await renderOrder();
     } catch (err) {
       handleOrderError(err);
+      if (!["LEGACY_ORDER_EXISTS", "LEGACY_ORDER_PENDING"].includes(err.code)) {
+        renderGenerationProgress(null);
+        if (["FREE_QUOTA_EXHAUSTED", "FREE_BROWSER_LIMIT", "SERVICE_NOT_CONFIGURED", "DELIVERY_UNAVAILABLE"].includes(err.code)) {
+          stage("generate");
+          $("customTitle").textContent = "暂时无法开始生成";
+          $("generationMessage").textContent = err.message || "";
+        } else {
+          stage("photo");
+        }
+      }
     } finally {
       busy = false; buttons();
     }
@@ -441,7 +474,7 @@ export function initCustom(getEntry) {
     show("freeQuotaHelp", false);
     $("freeQuotaNote").textContent = "";
     $("freeQuotaBadge").dataset.state = "open";
-    $("freeQuotaBadge").querySelector(".quota-badge-label").textContent = "限时免费 1000 份";
+    $("freeQuotaBadge").querySelector(".quota-badge-label").textContent = "正在查询免费额度";
     error(""); buttons();
     ensureBrowserId();
     // 先开放角色选择，再后台核对额度和历史订单，避免慢网锁住所有按钮。
@@ -460,6 +493,9 @@ export function initCustom(getEntry) {
       ]);
       if (sequence !== opening) return;
       config = service;
+      // 打赏文案跟随当前商品价（活动期 1.8 元，恢复原价后自动变 6 元）。
+      const fen = Number(service.amountFen);
+      if (Number.isFinite(fen) && fen > 0) $("tipPrice").textContent = String(fen / 100);
       free = previous.free || service.free || null;
       feedback = previous.feedback || null;
       const tip = $("tipAuthorLink");
@@ -561,7 +597,12 @@ export function initCustom(getEntry) {
   $("retryJobBtn").addEventListener("click", () => { regenerating = true; startFreeOrder(true); });
   $("checkJobBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
   $("satisfiedYes").addEventListener("click", () => submitFeedback({ satisfied: true }));
-  $("satisfiedNo").addEventListener("click", () => submitFeedback({ satisfied: false }));
+  $("satisfiedNo").addEventListener("click", () => submitFeedback({ satisfied: false, priceFen: null, skipped: false }));
+  $("surveyBackBtn").addEventListener("click", () => {
+    // 只重置本地草稿；重新选择后会覆盖服务端同 attempt 的记录。
+    feedback = null;
+    renderSurvey();
+  });
   $("priceChoices").addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-fen]");
     if (!button) return;
@@ -580,6 +621,11 @@ export function initCustom(getEntry) {
     resetPhotoSelection();
     stage("photo");
     buttons();
+  });
+  $("viewCustomLink").addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!outputUrl) return;
+    openViewer?.(outputUrl, "万圣节头像大图", "毛孩子的万圣节头像", $("viewCustomLink"));
   });
   $("saveCustomBtn").addEventListener("click", () => {
     if (!outputUrl) return;

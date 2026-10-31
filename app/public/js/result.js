@@ -1,5 +1,5 @@
-import { roleCardUrl } from "./role-assets.js";
-import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints } from "./store.js";
+import { roleCardUrl, roleAtlasUrl } from "./role-assets.js";
+import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints, fetchQuiz } from "./store.js";
 import { track } from "./track.js";
 import { initCustom } from "./custom.js";
 import { initResultMedia, probabilityText } from "./result-media.js";
@@ -163,7 +163,45 @@ document.addEventListener("pointerdown", event => {
   if (!event.target.closest(".rarity-area")) { rarityPinned = false; showRarity(false); }
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") { rarityPinned = false; showRarity(false); } });
-initCustom(() => entry);
+// 角色集合复用选角图集，只做浏览；真正的选择仍在定制弹窗里完成。
+let collectionReady = false;
+async function openRoleCollection() {
+  const dialog = $("roleCollectionDialog");
+  if (!dialog.open) dialog.showModal();
+  if (collectionReady) return;
+  try {
+    const quiz = await fetchQuiz(entry.petType);
+    const atlas = roleAtlasUrl(entry.petType);
+    const fragment = document.createDocumentFragment();
+    quiz.characters.forEach((role, index) => {
+      const item = document.createElement("li");
+      item.className = "collection-item";
+      const portrait = document.createElement("span");
+      portrait.className = "collection-portrait";
+      portrait.setAttribute("aria-hidden", "true");
+      const image = document.createElement("img");
+      image.src = atlas;
+      image.alt = "";
+      image.decoding = "async";
+      image.style.transform = `translate(${-25 * (index % 4)}%, ${-25 * Math.floor(index / 4)}%)`;
+      portrait.appendChild(image);
+      const name = document.createElement("span");
+      name.className = "collection-name";
+      name.textContent = role.name;
+      item.append(portrait, name);
+      fragment.appendChild(item);
+    });
+    $("collectionGrid").replaceChildren(fragment);
+    $("collectionIntro").textContent = "定制头像时可以任选一个。";
+    collectionReady = true;
+  } catch {
+    $("collectionIntro").textContent = "角色暂时加载失败，关闭后重试。";
+  }
+}
+$("roleCollectionBtn").addEventListener("click", () => { void openRoleCollection(); });
+$("closeCollectionBtn").addEventListener("click", () => $("roleCollectionDialog").close());
+$("roleCollectionDialog").addEventListener("close", () => $("roleCollectionBtn").focus({ preventScroll: true }));
+initCustom(() => entry, media.viewImage);
 $("againBtn").addEventListener("click", () => {
   if (entry) saveResult(entry);
   // 新测在首页点击开始时创建；此处不清除其他宠物未完成的进度。

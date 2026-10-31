@@ -287,10 +287,30 @@ test.describe("结果、历史与接口", () => {
     expect(png.height).toBeGreaterThan(1600);
     await download.saveAs("shots/result-share-poster-20261030.png");
     await page.screenshot({ path: "shots/result-share-dialog-20261030.png" });
-    await page.locator("#shareMomentsBtn").click();
-    await expect(page.locator("#momentsGuide")).toContainText("从相册选择这张图片后发表");
+    // 分享到朋友圈已移除，只保留下载与长按保存。
+    await expect(page.locator("#shareMomentsBtn")).toHaveCount(0);
+    await expect(page.locator("#momentsGuide")).toHaveCount(0);
+    await expect(page.locator(".share-note")).toContainText("长按预览图片保存");
     await page.locator("#closeShareBtn").click();
     await expect(page.locator("#saveCardBtn")).toBeFocused();
+  });
+
+  test("角色集合展示 16 个角色，关闭后焦点回到入口", async ({ page }) => {
+    await seedPage(page, session);
+    await expect(page.locator(".avatar-cta-note")).toContainText("上传照片生成毛孩子专属万圣节头像");
+    const trigger = page.locator("#roleCollectionBtn");
+    await expect(trigger).toHaveText("角色集合");
+    expect(await trigger.evaluate(el => getComputedStyle(el).textDecorationLine)).toContain("underline");
+    await trigger.click();
+    await expect(page.locator("#roleCollectionDialog")).toBeVisible();
+    await expect(page.locator("#collectionTitle")).toHaveText("16 个角色");
+    await expect(page.locator("#collectionGrid .collection-item")).toHaveCount(16);
+    await expect(page.locator("#collectionGrid .collection-name").first()).toHaveText(/咪$/);
+    await page.setViewportSize({ width: 320, height: 720 });
+    expect(await page.locator("#roleCollectionDialog").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.locator("#closeCollectionBtn").click();
+    await expect(page.locator("#roleCollectionDialog")).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("角色卡可打开高清大图、缩放和返回，概率说明支持悬停与键盘", async ({ page }) => {

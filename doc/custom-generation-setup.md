@@ -10,7 +10,7 @@
 - 数据：`migrations/0005_free_generation.sql` 新增 `free_quota`、`free_usage`、`free_requests`、`free_quota_refunds`、`free_feedback`，并给 `orders` 增加 `free_*` 列。额度用条件 UPDATE 与同批补偿占用；失败按 attempt 台账退回，同一 attempt 不重复退。
 - 开关：生产 Pages `FREE_GENERATION_ENABLED="true"`、`PAYMENT_ENABLED="false"`；delivery worker `DELIVERY_ENABLED="true"`，否则心跳为 paused，`/api/config` 会返回不可用。`/api/checkout` 在 `PAYMENT_ENABLED !== "true"` 时返回 503；`/api/jobs` 与退款接口拒绝免费单。
 - 配置：`/api/config` 新增 `free`（剩余、耗尽、本机次数）、`tipUrl`（`AFDIAN_SUPPORT_URL` 或现有 `AFDIAN_PAY_URL`，只做打赏，不加订单参数）、`paymentAvailable`。
-- 前端：定制弹窗去掉付款/退款区，标题右侧“限时免费 · 剩 N 份”角标；生成后问卷询问满意度，满意再问 1/2/6 元意愿（可跳过），不满意引导换照片或换角色（消耗第 2 次）。打赏按钮只在有成品时显示。
+- 前端：定制弹窗去掉付款/退款区，标题右侧“限时免费 · 剩 N 份”角标；生成中显示“正在发送生成请求 / 正在等待图片生成”两步进度；成品可点击复用大图查看器（缩放、长按保存、打开原图）；生成后问卷询问满意度，满意再问 1/2/6 元意愿（可跳过），不满意引导换照片或换角色（消耗第 2 次），两者都可“返回重选”；保存按钮下显示“喜欢这种头像？花1.8元打赏作者”，其中“打赏”紫色加下划线，金额跟随 `/api/config`。
 - 生图参数不变：一次 Seedream 5.0 Flash，2048×2048 白底 PNG，不抠图。
 - 部署顺序：应用 D1 迁移 0005 → 同步 `ARK_API_KEY` 与参考图 → 部署 Pages → 部署 delivery worker → 确认真实免费出图与失败退回。本地 `npm run test:api` 与 Playwright 使用替身，不代表真实生图已验收。
 

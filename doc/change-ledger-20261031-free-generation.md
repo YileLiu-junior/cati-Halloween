@@ -164,3 +164,25 @@
 - 若要关闭活动：把 `FREE_GENERATION_ENABLED` 设为 `"false"`，前端会显示维护态且不扣额度；不要靠改额度表为 0 来关闭。
 - 若要恢复收费：需要同时处理旧订单、退款、`paid_at`、通知、后台交付与新订单来源，先读 `doc/avatar-delivery-operations.md`。
 - 角标当前显示「剩余份数」而不是固定「1000 份」；如需固定文案只改 `custom.js` 的 `TEXT.badge`。
+
+## 13. 2026-10-31 测试反馈修正（本地完成，未部署）
+
+用户在测试环境验收 §20 后提出四点，已全部落实：
+
+1. **生成两步进度**：`#generationProgress` 内含 `#genStepRequest` 与 `#genStepWait`，状态用 `data-state="pending|active|done"`；`unlocked/queued` 第 1 步 active，`generating` 第 1 步 done、第 2 步 active，`ready` 隐藏。转圈为 16px 圆点，完成换对勾，`prefers-reduced-motion` 停转；`#generationLive` 负责读屏播报。
+2. **成品大图**：`#viewCustomLink` 包住 `#customImage`，点击调用 `result-media.js` 导出的 `viewImage`，复用 `#imageViewer`（缩放、长按保存、打开原图）。`result.js` 通过 `initCustom(getEntry, media.viewImage)` 注入。
+3. **打赏强调**：`#tipAuthorLink` 位于保存按钮与问卷之间，文案「喜欢这种头像？花1.8元打赏作者」；`#tipPrice` 跟随 `config.amountFen`，`.tip-action` 用 `--purple-link: oklch(0.82 0.12 316)`、加粗、下划线。只在 `ready` 时显示。
+4. **问卷回退**：`#surveyBackBtn` 在 `feedback` 存在时显示；点击只清空本地 `feedback` 并重新渲染满意度问题，重新提交走同一 UPSERT，覆盖同 attempt 的记录；切到不满意时前端显式发送 `priceFen:null, skipped:false`。
+
+新增截图：`app/shots/free-generation-steps-390.png`、`free-tip-survey-390.png`、`free-image-viewer-390.png`。
+
+验证：Playwright 66/66、Node API 58/58。仍未部署、未真实生图。
+
+## 14. 2026-10-31 结果页调整（本地完成，未部署）
+
+1. **移除朋友圈分享**：`result.html` 分享弹窗删除 `#shareMomentsBtn` 与 `#momentsGuide`，`result-media.js` 删除对应监听与禁用逻辑；分享说明改为“也可以长按预览图片保存。”。保存图片与长按保存保留。
+2. **定制入口小字**：`#avatarCtaNote` 改为“上传照片生成毛孩子专属万圣节头像”，同排新增 `#roleCollectionBtn`（带下划线，44px 点击范围）。
+3. **角色集合弹窗**：新增 `#roleCollectionDialog`，标题“16 个角色”，`#collectionGrid` 用 4×4 精灵网格展示 16 个角色；`result.js` 首次打开时 `fetchQuiz(entry.petType)` 并用 `roleAtlasUrl` 构建，`transform: translate(-25%*col, -25%*row)` 裁切。只浏览不选择，关闭后焦点回到入口。320/390px 保持四列。
+4. 测试：`quiz.spec.js` 删除朋友圈点击断言，新增 `#shareMomentsBtn` / `#momentsGuide` 数量为 0、角色集合 16 项与下划线断言。
+
+截图：`result-role-collection-entry-390.png`、`result-role-collection-390.png`、`result-role-collection-320.png`、`result-share-dialog-390.png`。Playwright 67/67。未部署。

@@ -201,3 +201,24 @@
 验证：`python tools/validate_quiz.py` 通过（10 题 × 5 选项、猫狗同构、16 角色可达、题干 ≤25 字；中庸选项占比 19.9%，平局率 32.8%，最低角色份额 1.4%）。`npm run test:api` 58/58 通过。`npx playwright test` 61/61 通过，覆盖免费全链路、问卷分支、额度耗尽、失败重试、历史付费/待付款订单、320/390px 与 reduced-motion。截图 `app/shots/free-quota-role-390.png`、`free-quota-help-390.png`、`free-quota-survey-390.png`、`free-quota-closed-320.png`。
 
 未部署、未做真实生图、未做真实打赏跳转验收。上线前需：应用 D1 迁移 0005、部署 Pages 与 delivery worker、确认 `ARK_API_KEY` 与 16 张角色参考图在 R2、`DELIVERY_ENABLED="true"`、先用一张真实宠物照片走一次免费生成并确认失败退回。不能把本地替身测试写成真实生图验收。
+
+## 21. 2026-10-31 测试反馈：两步加载、头像大图、打赏强调与问卷回退（本地完成，未部署）
+
+用户把 §20 推到测试环境后反馈四点，均已按原文修改：
+
+1. **生成中进度**：生成区新增 16px 旋转圆点与两步列表「正在发送生成请求 / 正在等待图片生成」；`unlocked/queued` 停在第 1 步，`generating` 第 1 步打勾、第 2 步旋转，`ready` 后整块隐藏。`prefers-reduced-motion` 停转。
+2. **成品大图**：成品图外包一层可点击链接，复用结果页 `#imageViewer`，支持双指/按钮缩放、长按保存与「打开原图」；说明改成“点击图片可放大 · AI 生成 · 请在 7 天内保存”。
+3. **打赏文案**：保存按钮下改为“喜欢这种头像？花1.8元打赏作者”，整行外链；「打赏」使用新增浅紫 `--purple-link`、加粗并加下划线。金额跟随 `/api/config` 的 `amountFen`，活动结束自动变 6 元。打赏只在有成品时出现。
+4. **问卷回退**：满意与不满意两条分支都新增“‹ 返回重选”，返回后重新显示满意/不太满意；重新提交会 UPSERT 覆盖同一次生成的记录，切到不满意时价格字段清空。
+
+改动文件：`public/result.html`、`public/js/custom.js`、`public/js/result-media.js`（导出大图查看器）、`public/js/result.js`（注入查看器）、`public/css/style.css`、`tests/custom.spec.js`。
+
+验证：`npx playwright test` 66/66 通过，`npm run test:api` 58/58 通过；新增用例覆盖两步进度、`generating` 切换、点击大图、长按保存提示、打赏紫色下划线、问卷往返重选。截图 `app/shots/free-generation-steps-390.png`、`free-tip-survey-390.png`、`free-image-viewer-390.png`。本轮未部署、未调用真实生图。
+
+## 22. 2026-10-31 结果页：移除朋友圈分享、增加角色集合（本地完成，未部署）
+
+1. **移除分享到朋友圈**：分享弹窗删除“分享到朋友圈”按钮与三步指引，只保留“保存图片”和“也可以长按预览图片保存”。`result-media.js` 相关监听一并删除。
+2. **定制入口上方小字**：改为“上传照片生成毛孩子专属万圣节头像”，右侧新增带下划线的“角色集合”按钮。
+3. **角色集合**：新增小弹窗，标题“16 个角色”，4×4 网格复用选角图集展示 16 个角色立绘与名称，只浏览不选择；390px 与 320px 均保持四列，关闭后焦点回到入口。实现位于 `result.js`（首次打开时 `fetchQuiz` 并构建网格）。
+
+改动文件：`public/result.html`、`public/js/result.js`、`public/js/result-media.js`、`public/css/style.css`、`tests/quiz.spec.js`。验证：Playwright 67/67 通过，新增角色集合用例并断言朋友圈元素数量为 0。截图 `app/shots/result-role-collection-entry-390.png`、`result-role-collection-390.png`、`result-role-collection-320.png`、`result-share-dialog-390.png`。本轮未部署。

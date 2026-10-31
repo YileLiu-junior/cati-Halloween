@@ -45,7 +45,7 @@
           </div>
         </section>
         <div class="result-actions">
-          <p class="avatar-cta-note" id="avatarCtaNote">上传照片生成与结果卡片风格相同的万圣节头像</p>
+          <p class="avatar-cta-note"><span id="avatarCtaNote">上传照片生成毛孩子专属万圣节头像</span><button id="roleCollectionBtn" class="role-collection-link" type="button" aria-haspopup="dialog">角色集合</button></p>
           <button id="customBtn" class="primary avatar-cta" aria-describedby="avatarCtaNote"><span class="avatar-next">next</span><span>定制宠物万圣节装扮头像</span><span aria-hidden="true">↗</span></button>
           <div class="row">
             <button id="saveCardBtn" class="secondary" disabled aria-haspopup="dialog">分享结果</button>
@@ -61,9 +61,8 @@
       <p id="shareStatus" class="share-status" role="status" aria-live="polite"></p>
       <div id="sharePreview" class="share-preview hidden"><img id="sharePreviewImage" alt="完整测评结果分享图片" /></div>
       <button id="previewShareLarge" class="text-button share-zoom hidden" type="button">放大查看</button>
-      <div class="share-actions"><a id="saveShareImage" class="primary hidden">保存图片</a><button id="shareMomentsBtn" class="secondary" type="button" disabled aria-expanded="false" aria-controls="momentsGuide">分享到朋友圈</button></div>
-      <p class="share-note">也可以长按预览图片保存，再到朋友圈选图发布。</p>
-      <ol id="momentsGuide" class="moments-guide hidden"><li>长按上方图片，或点击“保存图片”，保存到手机。</li><li>在微信打开“发现 → 朋友圈”。</li><li>点击相机，从相册选择这张图片后发表。</li></ol>
+      <div class="share-actions"><a id="saveShareImage" class="primary hidden">保存图片</a></div>
+      <p class="share-note">也可以长按预览图片保存。</p>
     </dialog>
     <dialog id="imageViewer" class="image-viewer" aria-labelledby="imageViewerTitle">
       <div class="viewer-heading"><h2 id="imageViewerTitle">角色卡大图</h2><button id="closeImageViewer" class="icon-button" type="button" aria-label="关闭图片查看"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
@@ -71,12 +70,23 @@
       <div class="viewer-toolbar"><button id="zoomOutImage" class="secondary" type="button" aria-label="缩小图片">−</button><button id="resetImageZoom" class="text-button" type="button" aria-label="还原图片大小">1×</button><button id="zoomInImage" class="secondary" type="button" aria-label="放大图片">+</button><a id="openOriginalImage" class="text-button" target="_blank" rel="noopener">打开原图</a></div>
       <p class="viewer-note">双指缩放或使用 + / −，长按图片可保存</p>
     </dialog>
+    <dialog id="roleCollectionDialog" class="collection-dialog" aria-labelledby="collectionTitle" aria-describedby="collectionIntro">
+      <div class="collection-heading">
+        <div>
+          <p class="collection-kicker">毛孩子的万圣节造型</p>
+          <h2 id="collectionTitle">16 个角色</h2>
+        </div>
+        <button id="closeCollectionBtn" class="icon-button" type="button" aria-label="关闭角色集合"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+      </div>
+      <p id="collectionIntro" class="collection-intro">定制头像时可以任选一个。</p>
+      <ul id="collectionGrid" class="collection-grid" aria-label="16 个万圣节角色"></ul>
+    </dialog>
     <dialog id="customDialog" class="custom-dialog" aria-labelledby="customTitle" aria-describedby="customIntro">
       <div class="custom-heading">
         <p class="custom-kicker">毛孩子的万圣节头像</p>
         <div class="custom-heading-actions">
           <button id="freeQuotaBadge" class="quota-badge" type="button" aria-expanded="false" aria-controls="freeQuotaHelp" aria-describedby="freeQuotaHelp">
-            <span class="quota-badge-label">限时免费 1000 份</span>
+            <span class="quota-badge-label">正在查询免费额度</span>
           </button>
           <button id="closeCustomBtn" class="icon-button" aria-label="关闭定制窗口" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
         </div>
@@ -123,12 +133,23 @@
         <p id="freeQuotaNote" class="custom-note"></p>
       </section>
       <section id="generationStep" class="hidden">
+        <div id="generationProgress" class="generation-progress hidden">
+          <ol>
+            <li id="genStepRequest" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在发送生成请求</span></li>
+            <li id="genStepWait" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在等待图片生成</span></li>
+          </ol>
+          <p id="generationLive" class="visually-hidden" role="status" aria-live="polite"></p>
+        </div>
         <p id="generationMessage" role="status"></p>
         <button id="checkJobBtn" class="secondary hidden" type="button">查询进度</button>
         <button id="retryJobBtn" class="primary hidden" type="button">再试一次</button>
-        <figure id="customOutput" class="hidden"><img id="customImage" alt="毛孩子的万圣节头像" /><figcaption class="custom-note">AI 生成 · 请在 7 天内保存</figcaption></figure>
+        <figure id="customOutput" class="hidden">
+          <a id="viewCustomLink" class="custom-output-link" href="#" aria-label="放大查看万圣节头像" aria-haspopup="dialog"><img id="customImage" alt="毛孩子的万圣节头像" /></a>
+          <figcaption class="custom-note">点击图片可放大 · AI 生成 · 请在 7 天内保存</figcaption>
+        </figure>
         <button id="saveCustomBtn" class="primary hidden" type="button">保存头像</button>
       </section>
+      <a id="tipAuthorLink" class="custom-tip hidden" href="#" target="_blank" rel="noopener noreferrer">喜欢这种头像？花<span id="tipPrice">1.8</span>元<span class="tip-action">打赏</span>作者</a>
       <section id="surveyStep" class="hidden" aria-labelledby="surveyHeading">
         <h3 id="surveyHeading" tabindex="-1">这张头像还满意吗？</h3>
         <div id="satisfactionChoices" role="group" aria-labelledby="surveyHeading">
@@ -152,8 +173,8 @@
           </div>
         </div>
         <p id="surveyStatus" role="status" aria-live="polite"></p>
+        <button id="surveyBackBtn" class="text-button hidden" type="button">‹ 返回重选</button>
       </section>
-      <a id="tipAuthorLink" class="text-button custom-tip hidden" href="#" target="_blank" rel="noopener noreferrer">喜欢这张头像？打赏作者</a>
       <p id="customProgress" class="custom-progress" role="status" aria-live="polite"></p>
       <p id="customError" class="error hidden" role="alert"></p>
     </dialog>
