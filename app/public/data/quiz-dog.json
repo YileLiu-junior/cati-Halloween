@@ -111,7 +111,7 @@
       "id": "pirate",
       "name": "行侠仗义海盗汪",
       "tagline": "全家探险队长",
-      "rarityPct": 11.1,
+      "rarityPct": 9.3,
       "shortLines": [
         "天塌下来它第一个冲上去看",
         "外出无禁区，草坪是它的疆场",
@@ -697,7 +697,7 @@
           "axis": "B",
           "delta": 3,
           "points": {
-            "pirate": 3,
+            "pirate": 2,
             "franken": 1
           }
         },

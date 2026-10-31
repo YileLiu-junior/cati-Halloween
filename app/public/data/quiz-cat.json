@@ -66,7 +66,7 @@
       "id": "pirate",
       "name": "行侠仗义海盗咪",
       "tagline": "全家探险队长",
-      "rarityPct": 11.1,
+      "rarityPct": 9.3,
       "shortLines": ["天塌下来它第一个冲上去看", "高处无禁区，冰箱顶是瞭望台", "护主第一名，生人勿近"],
       "quote": "起锚！目标：厨房罐罐。"
     },
@@ -240,7 +240,7 @@
         { "id": "q9a", "text": "航空箱前上演消失术，塞进去后一路嚎，感觉出去一趟嗓子都要哭哑了", "axis": "D", "delta": 3, "points": { "clown": 3, "bride": 1 } },
         { "id": "q9b", "text": "到医院全程淡定趴着，谁忍不住夸「这也太乖了」，是见过大风大浪的淡咪", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pirate": 1 } },
         { "id": "q9c", "text": "全程发抖装隐形，恨不得把自己嵌进航空箱最底下", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q9d", "text": "出去跟到了自己家一样，人也好猫也好，见了面都是朋友", "axis": "B", "delta": 3, "points": { "pirate": 3, "franken": 1 } },
+        { "id": "q9d", "text": "出去跟到了自己家一样，人也好猫也好，见了面都是朋友", "axis": "B", "delta": 3, "points": { "pirate": 2, "franken": 1 } },
         { "id": "q9n", "text": "感觉都有，看情况而定", "axis": null, "delta": 0, "points": {} }
       ]
     },
