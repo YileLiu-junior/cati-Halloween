@@ -18,7 +18,8 @@ const help = `本地检查（不调用 API）：
   node tools/test-generation.mjs --pet-type cat
 真实生图（收费，一次请求）：
   node tools/test-generation.mjs --photo "E:\\照片\\pet.jpg" --role ghost --pet-type cat --live
-可选：--pet-name 名字，--out 输出父目录。默认输出到 app/.wrangler/generation-tests/。
+可选：--pet-name 名字，--out 输出父目录，--prompt-file 临时覆盖 Prompt。默认输出到 app/.wrangler/generation-tests/。
+猫/狗默认使用生成后的分角色 Prompt（cat-roles/combined/NN-role.txt 与 dog-roles/<role>.md 经 sync 写入 generation-prompts.json）。
 照片须为真正的 JPEG，短边至少512px、长边最多1600px、最多2MiB。
 角色：${Object.keys(ROLE_FILES).join(", ")}`;
 

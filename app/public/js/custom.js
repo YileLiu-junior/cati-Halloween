@@ -1,5 +1,5 @@
 import { roleAtlasUrl } from "./role-assets.js";
-import { fetchQuiz, getState, setState } from "./store.js";
+import { fetchQuiz, getState, setState, saveGeneration } from "./store.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id, visible = true) => $(id).classList.toggle("hidden", !visible);
@@ -28,6 +28,7 @@ export function initCustom(getEntry, openViewer) {
   const dialog = $("customDialog");
   let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
   let free = null, feedback = null, browserId = null, regenerating = false;
+  let serviceSnapshot = null, servicePrefetch = null;
   let busy = false, pollTimer, pollStart, imageLoading = false, surveyFocusAttempt = null;
   let restoring = false, pickingPhoto = false, opening = 0;
   const roleImage = $("browseRoleImage");
@@ -63,6 +64,20 @@ export function initCustom(getEntry, openViewer) {
     browserId = crypto.randomUUID();
     setState({ anonId: browserId });
     return browserId;
+  }
+  // 页面打开就先拿一次服务状态：额度用尽时可以直接拦在定制按钮上，不用先进流程。
+  function prefetchService() {
+    if (servicePrefetch) return servicePrefetch;
+    const id = ensureBrowserId();
+    servicePrefetch = fetch(`/api/config?browserId=${encodeURIComponent(id)}`, { cache: "no-store", signal: AbortSignal.timeout(8000) })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (data) serviceSnapshot = data; document.documentElement.dataset.service = "ready"; return data; })
+      .catch(() => null);
+    return servicePrefetch;
+  }
+  function openQuotaClosed() {
+    const notice = $("quotaClosedDialog");
+    if (notice && !notice.open) notice.showModal();
   }
   function freeState() { return free || config?.free || null; }
   function renderQuota() {
@@ -114,8 +129,8 @@ export function initCustom(getEntry, openViewer) {
     $("photoConsent").disabled = busy;
     $("retryJobBtn").disabled = busy;
     $("checkJobBtn").disabled = busy;
-    for (const id of ["satisfiedYes", "satisfiedNo", "skipPriceBtn", "regeneratePhotoBtn", "regenerateRoleBtn"]) $(id).disabled = busy;
-    for (const button of document.querySelectorAll(".price-option")) button.disabled = busy;
+    for (const button of document.querySelectorAll(".survey-choice")) button.disabled = busy;
+    for (const id of ["regeneratePhotoBtn", "regenerateRoleBtn"]) $(id).disabled = busy;
   }
   async function run(action) {
     if (busy) return;
@@ -257,37 +272,41 @@ export function initCustom(getEntry, openViewer) {
     show("regenerateChoices", allowed);
     $("unsatisfiedText").textContent = allowed ? TEXT.unsatisfiedWithQuota : TEXT.unsatisfiedNoQuota;
   }
+  function markChoices(id, attribute, value) {
+    for (const button of $(id).querySelectorAll(`[${attribute}]`)) {
+      const selected = value != null && button.getAttribute(attribute) === String(value);
+      button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    }
+  }
+  // 四题按顺序展开：答完一题才出现下一题，换答案直接覆盖同一次记录。
   function renderSurvey() {
     if (!order?.free || order.status !== "ready") { show("surveyStep", false); return; }
     show("surveyStep");
-    show("priceQuestion", false);
-    show("unsatisfiedGuide", false);
-    show("satisfactionChoices", false);
-    // 选过之后仍可回到“满意 / 不太满意”重选，提交会覆盖同一次生成的记录。
-    show("surveyBackBtn", Boolean(feedback));
-    $("surveyStatus").textContent = "";
+    const data = feedback || {};
+    const satisfaction = data.satisfaction ?? null;
+    const satisfied = satisfaction === 2 || satisfaction === 3;
+    const similarity = data.similarity ?? null;
+    const priceBand = data.priceBand ?? null;
+    const issue = data.issue ?? null;
+    const spendHistory = data.spendHistory ?? null;
+    markChoices("satisfactionChoices", "data-satisfaction", satisfaction);
+    markChoices("similarityChoices", "data-similarity", similarity);
+    markChoices("priceChoices", "data-price-band", priceBand);
+    markChoices("issueChoices", "data-issue", issue);
+    markChoices("spendChoices", "data-spend", spendHistory);
+    show("similarityQuestion", satisfied);
+    show("priceQuestion", satisfied && similarity !== null);
+    show("issueQuestion", satisfaction === 1);
+    show("spendQuestion", satisfaction !== null && (satisfied ? priceBand !== null : issue !== null));
+    show("unsatisfiedGuide", satisfaction === 1);
+    if (satisfaction === 1) renderRegenerateChoices();
+    // 本分支的问完才收尾：满意路径要价格，不满意路径要原因。
+    const complete = satisfaction !== null && spendHistory !== null && (satisfied ? priceBand !== null : issue !== null);
+    $("surveyStatus").textContent = complete ? "已记录，谢谢你的反馈。" : "";
     if (surveyFocusAttempt !== order.attemptId) {
       surveyFocusAttempt = order.attemptId;
       $("surveyHeading").focus({ preventScroll: true });
-    }
-    if (!feedback) {
-      $("surveyHeading").textContent = "这张头像还满意吗？";
-      show("satisfactionChoices");
-      return;
-    }
-    if (feedback.satisfied) {
-      $("surveyHeading").textContent = "谢谢你的反馈";
-      if (feedback.skipped) {
-        $("surveyStatus").textContent = "已记录：这次先跳过价格问题。";
-      } else if (feedback.priceAnswered) {
-        $("surveyStatus").textContent = `已记录：愿意支付 ${feedback.priceFen / 100} 元。`;
-      } else {
-        show("priceQuestion");
-      }
-    } else {
-      $("surveyHeading").textContent = "谢谢你的反馈";
-      show("unsatisfiedGuide");
-      renderRegenerateChoices();
     }
   }
   function schedulePoll() {
@@ -317,6 +336,15 @@ export function initCustom(getEntry, openViewer) {
     show("retryJobBtn", false); show("checkJobBtn", false); show("tipAuthorLink", false);
     renderGenerationProgress(null);
     if (!order) return;
+    // 把订单引用写进历史，历史抽屉就能找到这张照片和头像；图片仍留在云端。
+    if (order.status === "ready" && order.imageUrl) {
+      entry.generation = {
+        orderId: order.orderId, photoId: order.photoId, roleId: order.roleId, roleName: order.roleName,
+        petType: entry.petType, status: "ready", imageUrl: order.imageUrl,
+        expiresAt: order.expiresAt, deliveredAt: order.deliveredAt,
+      };
+      saveGeneration(entry.testId, entry.generation);
+    }
     if (!order.free) {
       stage("generate");
       if (order.status === "ready") {
@@ -439,15 +467,25 @@ export function initCustom(getEntry, openViewer) {
       busy = false; buttons();
     }
   }
-  async function submitFeedback(payload) {
+  async function submitFeedback(patch, focusId) {
     if (busy || !order?.attemptId) return;
     busy = true; buttons();
+    // 每次提交整份草稿；显式传 null 表示清空，未传的字段沿用上一次答案。
+    const pick = (key) => (Object.hasOwn(patch, key) ? patch[key] : feedback?.[key] ?? null);
+    const draft = {
+      satisfaction: pick("satisfaction"),
+      similarity: pick("similarity"),
+      priceBand: pick("priceBand"),
+      issue: pick("issue"),
+      spendHistory: pick("spendHistory"),
+    };
     try {
       const data = await api("/api/feedback", {
-        testId: entry.testId, orderId: order.orderId, attemptId: order.attemptId, ...payload,
+        testId: entry.testId, orderId: order.orderId, attemptId: order.attemptId, ...draft,
       });
       feedback = data.feedback;
       renderSurvey();
+      if (focusId) $(focusId)?.focus({ preventScroll: true });
     } catch {
       $("surveyStatus").textContent = TEXT.feedbackFailed;
     } finally {
@@ -527,7 +565,14 @@ export function initCustom(getEntry, openViewer) {
   }, { passive: true });
   $("chooseRole").addEventListener("click", () => selectRole(roles[roleIndex]));
   $("changeRole").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); stage("role"); buttons(); });
-  $("customBtn").addEventListener("click", openCustom);
+  void prefetchService();
+  $("customBtn").addEventListener("click", () => {
+    // 全站 1000 份用完后不再进入定制流程；已经生成过头像的仍可进去查看和保存。
+    if (serviceSnapshot?.free?.exhausted && !getEntry()?.generation?.orderId) { openQuotaClosed(); return; }
+    openCustom();
+  });
+  $("closeQuotaClosed").addEventListener("click", () => $("quotaClosedDialog").close());
+  $("quotaClosedDialog").addEventListener("close", () => $("customBtn").focus({ preventScroll: true }));
   window.addEventListener("pagehide", () => clearTimeout(pollTimer));
   $("closeCustomBtn").addEventListener("click", () => dialog.close());
   $("freeQuotaBadge").addEventListener("click", () => {
@@ -596,19 +641,34 @@ export function initCustom(getEntry, openViewer) {
   $("startFreeBtn").addEventListener("click", () => startFreeOrder(regenerating));
   $("retryJobBtn").addEventListener("click", () => { regenerating = true; startFreeOrder(true); });
   $("checkJobBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
-  $("satisfiedYes").addEventListener("click", () => submitFeedback({ satisfied: true }));
-  $("satisfiedNo").addEventListener("click", () => submitFeedback({ satisfied: false, priceFen: null, skipped: false }));
-  $("surveyBackBtn").addEventListener("click", () => {
-    // 只重置本地草稿；重新选择后会覆盖服务端同 attempt 的记录。
-    feedback = null;
-    renderSurvey();
+  $("satisfactionChoices").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-satisfaction]");
+    if (!button) return;
+    const satisfaction = Number(button.dataset.satisfaction);
+    // 换到另一条分支时显式清空那一侧的答案，避免提交互相矛盾的组合。
+    const patch = satisfaction === 1 ? { satisfaction, similarity: null, priceBand: null } : { satisfaction, issue: null };
+    submitFeedback(patch, satisfaction === 1 ? "issueHeading" : "similarityHeading");
+  });
+  $("similarityChoices").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-similarity]");
+    if (!button) return;
+    submitFeedback({ similarity: Number(button.dataset.similarity) }, "priceHeading");
   });
   $("priceChoices").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-price-fen]");
+    const button = event.target.closest("[data-price-band]");
     if (!button) return;
-    submitFeedback({ satisfied: true, priceFen: Number(button.dataset.priceFen) });
+    submitFeedback({ priceBand: button.dataset.priceBand }, "spendHeading");
   });
-  $("skipPriceBtn").addEventListener("click", () => submitFeedback({ satisfied: true, skipped: true, priceFen: null }));
+  $("issueChoices").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-issue]");
+    if (!button) return;
+    submitFeedback({ issue: button.dataset.issue }, "spendHeading");
+  });
+  $("spendChoices").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-spend]");
+    if (!button) return;
+    submitFeedback({ spendHistory: Number(button.dataset.spend) });
+  });
   $("regenerateRoleBtn").addEventListener("click", () => {
     regenerating = true;
     selectedRole = null;

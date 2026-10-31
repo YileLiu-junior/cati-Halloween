@@ -24,7 +24,14 @@ export function feedbackPayload(row) {
   if (!row) return null;
   return {
     attemptId: row.attempt_id, testId: row.test_id, orderId: row.order_id,
-    satisfied: Boolean(row.satisfied), priceFen: row.price_fen ?? null,
+    satisfied: Boolean(row.satisfied),
+    // 旧记录只有布尔答案，按「满意 / 不太满意」回填成三档。
+    satisfaction: row.satisfaction ?? (row.satisfied ? 3 : 1),
+    similarity: row.similarity ?? null,
+    issue: row.issue ?? null,
+    priceBand: row.price_band ?? null,
+    spendHistory: row.spend_history ?? null,
+    priceFen: row.price_fen ?? null,
     priceAnswered: Boolean(row.price_answered), skipped: Boolean(row.skipped),
     petType: row.pet_type, roleId: row.role_id, updatedAt: row.updated_at,
   };

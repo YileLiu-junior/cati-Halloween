@@ -6,7 +6,7 @@ workers_dev = false
 
 [vars]
 PETI_TEST_MODE = "true"
-DELIVERY_ENABLED = "false"
+DELIVERY_ENABLED = "true"
 CUSTOM_GENERATION_ENABLED = "true"
 FREE_GENERATION_ENABLED = "true"
 PAYMENT_ENABLED = "false"

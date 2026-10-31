@@ -44,6 +44,8 @@ function resultEntry(entry, previous = {}) {
     quizVersion: entry.quizVersion || entry.result.quizVersion,
     result: entry.result,
     completedAt: entry.completedAt || previous.completedAt || null,
+    // 只存订单引用，照片和头像仍留在云端 7 天，不在本机缓存图片。
+    generation: entry.generation || previous.generation || null,
   };
 }
 
@@ -71,6 +73,23 @@ export function saveResult(entry) {
   else history[index] = saved;
   setState({ history });
   return saved;
+}
+
+// 生成完成后把订单引用写进对应历史；重复轮询同一订单不会反复写 localStorage。
+export function saveGeneration(testId, generation) {
+  if (!testId || !generation?.orderId) return null;
+  const history = getHistory().reverse();
+  const index = history.findIndex((entry) => entry.testId === testId);
+  if (index === -1) return null;
+  const previous = history[index].generation;
+  // 同一订单重新生成时 orderId 不变，比 roleId 和交付时间才能发现内容已更新。
+  const same = previous && previous.orderId === generation.orderId && previous.status === generation.status
+    && previous.expiresAt === generation.expiresAt && previous.imageUrl === generation.imageUrl
+    && previous.roleId === generation.roleId && previous.deliveredAt === generation.deliveredAt;
+  if (same) return history[index];
+  history[index] = { ...history[index], generation };
+  setState({ history });
+  return history[index];
 }
 
 export function renameResult(testId, name) {

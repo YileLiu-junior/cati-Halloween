@@ -12,7 +12,10 @@
     "test": "playwright test",
     "test:api": "node --test tools/custom-api.test.mjs tools/delivery.test.mjs tools/test-generation-cli.test.mjs tools/free-orders.test.mjs",
     "test:generation": "node tools/test-generation.mjs",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "references:check": "node tools/upload-references.mjs --check",
+    "references:upload": "node tools/upload-references.mjs",
+    "references:upload:remote": "node tools/upload-references.mjs --remote"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -1,6 +1,8 @@
 // 落地页：开场命名、继续答题和本浏览器历史结果。
 import { getState, setState, initState, getHistory, saveResult, consumeSourceParam, shuffled, petNameCodePoints, fetchQuiz } from "./store.js";
 import { initTrack, track } from "./track.js";
+import { initHistory } from "./history.js";
+import { roleThumbUrl } from "./role-assets.js";
 
 const state = initState();
 const source = consumeSourceParam();
@@ -29,20 +31,32 @@ refreshToggle();
 
 const history = getHistory();
 $("historySection").classList.toggle("hidden", history.length === 0);
-for (const entry of history) {
+$("historyOpenBtn").textContent = history.length > 3 ? `查看全部 ${history.length} 条 ›` : "历史记录 ›";
+// 首页只放最近三条，其余放进历史抽屉，避免落地页被记录撑长。
+for (const entry of history.slice(0, 3)) {
   const link = document.createElement("a");
   link.className = "history-item";
   link.href = `/result?testId=${encodeURIComponent(entry.testId)}`;
+  const thumb = document.createElement("img");
+  thumb.className = "history-thumb";
+  thumb.loading = "lazy";
+  thumb.decoding = "async";
+  thumb.alt = "";
+  if (["cat", "dog"].includes(entry.petType) && /^[a-z]{2,16}$/.test(entry.result?.roleId || "")) {
+    thumb.src = roleThumbUrl(entry.petType, entry.result.roleId);
+  }
   const label = document.createElement("span");
+  label.className = "history-label";
   const name = document.createElement("strong");
   name.textContent = entry.petName;
   const role = document.createElement("span");
   role.textContent = entry.result.roleName;
   label.append(name, role);
-  link.appendChild(label);
+  link.append(thumb, label);
   link.insertAdjacentHTML("beforeend", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>');
   $("historyList").appendChild(link);
 }
+initHistory();
 $("continueBtn").classList.toggle("hidden", !state.testId || !state.order || Boolean(state.result));
 
 function showNameError(msg) {

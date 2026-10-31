@@ -1,24 +1,63 @@
 # 狗狗 16 角色专属 Prompt
 
-- 统一 Prompt（备选，默认走这条）：[`../pet-character-dog.md`](../pet-character-dog.md)
-- 角色专属 Prompt：本目录 `<role>.md`，共 16 个。
-- 生成器：`app/tools/build-dog-role-prompts.mjs`。修改角色数据后重新运行即可覆盖本目录文件。
+- 角色专属 Prompt：本目录 `<role>.md`，共 16 个，App 默认按 `roleId` 使用。
+- 兜底 Prompt：[`../pet-character-dog.md`](../pet-character-dog.md)，仅未知角色时使用。
+- 生成器：`app/tools/build-dog-role-prompts.mjs`。**不要运行**，它会覆盖本目录手工微调的内容。
+
+## App 接入
+
+`app/tools/sync-generation-prompts.mjs` 会把 16 份文件生成到 `app/functions/lib/generation-prompts.json` 的 `dog.roles`，结构与猫一致：
+
+- `cat.roles[roleId]` / `dog.roles[roleId]`：完整 Prompt
+- 图1 = `image[0]` 用户宠物照片
+- 图2 = `image[1]` 角色参考图
+
+用户选择狗狗角色并进入生成流程后，`generationSnapshot()` 会自动绑定对应的 Prompt。
 
 ## 用法
 
 只做预检，不调用收费 API：
 
 ```bash
-node app/tools/test-generation.mjs --pet-type dog --role ghost --prompt-file doc/prompts/dog-roles/ghost.md
+node app/tools/test-generation.mjs --pet-type dog --role ghost
 ```
 
 真实生图（收费）：
 
 ```bash
-node app/tools/test-generation.mjs --pet-type dog --role ghost --prompt-file doc/prompts/dog-roles/ghost.md --live
+node app/tools/test-generation.mjs --pet-type dog --role ghost --live
 ```
 
+`--prompt-file` 仍可临时覆盖 Prompt。
+
+## 参考图
+
+狗角色参考图在仓库根目录 `free-pic-dog/`，映射表是 `app/functions/lib/dog-role-references.js`，R2 键为：
+
+```text
+references/20261030-v2/dog/<role>.png
+```
+
+上传到 R2：
+
+```bash
+cd app
+npm run references:check         # 预检 32 张图
+npm run references:upload        # 本地 R2
+npm run references:upload:remote # 线上 R2（需要先 wrangler login）
+```
+
+猫和狗会一起上传，共 32 张；两套图片内容互不复用。
+
+注意：脚本固定写入 `peti-custom-images`（正式环境）。`preview-wrangler.toml` 用的是 `peti-avatar-preview-images`，预览环境需要单独上传。
+
+## 内容审核
+
+`zombie.md` 的服装描述已改成“传统服饰 / 红色圆顶帽子 / 黄色纸饰 / 红色纹样”，避免方舟文本审核拦截；参考图仍会带出原来的帽子和纸饰。
+
 ## 角色与露脚清单
+
+以下清单为旧任务记录，部分数量与参考图及已修订的角色文件不一致。使用时以各角色文件为准。
 
 | # | role | 名称 | 参考图 | 允许露出的脚爪 |
 |---|---|---|---|---|

@@ -74,6 +74,23 @@ test("首次免费生成占用额度、创建免费订单并投递队列", async
   assert.equal(body.free.browserRemaining, 1);
 });
 
+test("免费下单按 roleId 写入猫狗分角色 Prompt 快照", async () => {
+  for (const petType of ["cat", "dog"]) {
+    const f = await fixture(); configured();
+    // 保留真实的 16 份角色 Prompt，只把参考图换成本地夹具。
+    GENERATION_CONFIG.rolePrompts = structuredClone(initial.rolePrompts);
+    if (petType === "dog") Object.assign(f, await addTest(f, "dog", "mummy"));
+    const body = await (await create(f, { browserId: crypto.randomUUID() })).json();
+    const order = f.db.prepare("SELECT * FROM orders WHERE id=?").get(body.order.orderId);
+    const stored = JSON.parse(order.result_json);
+    assert.equal(stored.petType, petType);
+    assert.equal(stored.roleId, "mummy");
+    assert.equal(stored.generation.prompt, initial.rolePrompts[petType].mummy);
+    assert.equal(stored.generation.promptId, `${petType}:mummy`);
+    assert.equal(stored.generation.referenceKey, petType === "cat" ? "references/style.png" : "references/dog-style.png");
+  }
+});
+
 test("重复提交返回现有订单且不重复扣额度", async () => {
   const f = await fixture(); configured();
   const browserId = crypto.randomUUID();
@@ -298,18 +315,36 @@ test("反馈正常提交并保持幂等", async () => {
   const f = await fixture(); configured();
   const { orderId, attempt } = await readyFreeOrder(f);
   const send = (data) => post(feedback, f, { orderId, attemptId: attempt, ...data });
-  let res = await send({ satisfied: true, priceFen: 200, skipped: false });
+  let res = await send({ satisfaction: 3, similarity: 2, priceBand: "3-5", spendHistory: 1 });
   assert.equal(res.status, 200);
   let body = await res.json();
+  assert.equal(body.feedback.satisfaction, 3);
   assert.equal(body.feedback.satisfied, true);
-  assert.equal(body.feedback.priceFen, 200);
+  assert.equal(body.feedback.similarity, 2);
+  assert.equal(body.feedback.priceBand, "3-5");
+  assert.equal(body.feedback.spendHistory, 1);
   assert.equal(body.feedback.priceAnswered, true);
-  res = await send({ satisfied: false, priceFen: 600 });
+  // 换到不满意分支时，相似度和价格会被清掉，原因写进 issue。
+  res = await send({ satisfaction: 1, issue: "style", spendHistory: 1 });
   assert.equal(res.status, 200);
   body = await res.json();
+  assert.equal(body.feedback.satisfaction, 1);
   assert.equal(body.feedback.satisfied, false);
-  assert.equal(body.feedback.priceFen, 600);
+  assert.equal(body.feedback.issue, "style");
+  assert.equal(body.feedback.similarity, null);
+  assert.equal(body.feedback.priceBand, null);
   assert.equal(f.db.prepare("SELECT count(*) n FROM free_feedback").get().n, 1);
+});
+
+test("旧客户端只发 satisfied / priceFen 仍能写入", async () => {
+  const f = await fixture(); configured();
+  const { orderId, attempt } = await readyFreeOrder(f);
+  const res = await post(feedback, f, { orderId, attemptId: attempt, satisfied: true, priceFen: 200 });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.feedback.satisfaction, 3);
+  assert.equal(body.feedback.priceFen, 200);
+  assert.equal(body.feedback.priceAnswered, true);
 });
 
 test("反馈拒绝非法价格和过期 attempt", async () => {
@@ -318,6 +353,13 @@ test("反馈拒绝非法价格和过期 attempt", async () => {
   let res = await post(feedback, f, { orderId, attemptId: attempt, satisfied: true, priceFen: 300 });
   assert.equal(res.status, 400);
   assert.equal((await res.json()).code, "PRICE_INVALID");
+  res = await post(feedback, f, { orderId, attemptId: attempt, satisfaction: 2, priceBand: "99" });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).code, "PRICE_INVALID");
+  res = await post(feedback, f, { orderId, attemptId: attempt, satisfaction: 2, similarity: 5 });
+  assert.equal(res.status, 400);
+  res = await post(feedback, f, { orderId, attemptId: attempt, satisfaction: 1, issue: "unknown" });
+  assert.equal(res.status, 400);
   res = await post(feedback, f, { orderId, attemptId: crypto.randomUUID(), satisfied: true, priceFen: 100 });
   assert.equal(res.status, 409);
   assert.equal((await res.json()).code, "FEEDBACK_STALE");

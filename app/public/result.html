@@ -9,7 +9,10 @@
   </head>
   <body>
     <main class="page result-page">
-      <a class="result-home" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>首页与历史</a>
+      <div class="result-topbar">
+        <a class="result-home" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>首页</a>
+        <button class="result-history" type="button" data-history-open>历史记录<span aria-hidden="true">›</span></button>
+      </div>
       <div id="resultLoading" class="loading" role="status">正在加载角色卡…</div>
       <div id="resultEmpty" class="empty-result hidden">
         <p>当前浏览器还没有这份结果。</p>
@@ -138,6 +141,12 @@
             <li id="genStepRequest" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在发送生成请求</span></li>
             <li id="genStepWait" data-state="pending"><span class="gen-dot" aria-hidden="true"></span><span>正在等待图片生成</span></li>
           </ol>
+          <div class="dino-scene" aria-hidden="true">
+            <span class="dino-moon"></span>
+            <div class="dino-cactus-track"><span class="dino-cactus"></span></div>
+            <span class="dino-runner"></span>
+            <div class="dino-ground"></div>
+          </div>
           <p id="generationLive" class="visually-hidden" role="status" aria-live="polite"></p>
         </div>
         <p id="generationMessage" role="status"></p>
@@ -152,18 +161,45 @@
       <a id="tipAuthorLink" class="custom-tip hidden" href="#" target="_blank" rel="noopener noreferrer">喜欢这种头像？花<span id="tipPrice">1.8</span>元<span class="tip-action">打赏</span>作者</a>
       <section id="surveyStep" class="hidden" aria-labelledby="surveyHeading">
         <h3 id="surveyHeading" tabindex="-1">这张头像还满意吗？</h3>
-        <div id="satisfactionChoices" role="group" aria-labelledby="surveyHeading">
-          <button id="satisfiedYes" class="secondary" type="button">满意</button>
-          <button id="satisfiedNo" class="secondary" type="button">不太满意</button>
+        <div id="satisfactionChoices" class="survey-choices" role="group" aria-labelledby="surveyHeading">
+          <button class="survey-choice secondary" type="button" data-satisfaction="3" aria-pressed="false">很喜欢</button>
+          <button class="survey-choice secondary" type="button" data-satisfaction="2" aria-pressed="false">还行</button>
+          <button class="survey-choice secondary" type="button" data-satisfaction="1" aria-pressed="false">不太满意</button>
         </div>
-        <div id="priceQuestion" class="hidden">
-          <h4 id="priceHeading">如果这张头像收费，你愿意付多少？</h4>
-          <div id="priceChoices" role="group" aria-labelledby="priceHeading">
-            <button class="price-option secondary" type="button" data-price-fen="100">1 元</button>
-            <button class="price-option secondary" type="button" data-price-fen="200">2 元</button>
-            <button class="price-option secondary" type="button" data-price-fen="600">6 元</button>
+        <div id="similarityQuestion" class="survey-question hidden">
+          <h4 id="similarityHeading" tabindex="-1">和你家毛孩子像吗？</h4>
+          <div id="similarityChoices" class="survey-choices" role="group" aria-labelledby="similarityHeading">
+            <button class="survey-choice secondary" type="button" data-similarity="3" aria-pressed="false">很像</button>
+            <button class="survey-choice secondary" type="button" data-similarity="2" aria-pressed="false">有点像</button>
+            <button class="survey-choice secondary" type="button" data-similarity="1" aria-pressed="false">不太像</button>
           </div>
-          <button id="skipPriceBtn" class="text-button" type="button">跳过</button>
+        </div>
+        <div id="priceQuestion" class="survey-question hidden">
+          <h4 id="priceHeading" tabindex="-1">如果这张头像收费，你最多愿意付多少？</h4>
+          <div id="priceChoices" class="survey-choices" role="group" aria-labelledby="priceHeading">
+            <button class="survey-choice secondary" type="button" data-price-band="none" aria-pressed="false">不会付费</button>
+            <button class="survey-choice secondary" type="button" data-price-band="1-2" aria-pressed="false">1–2 元</button>
+            <button class="survey-choice secondary" type="button" data-price-band="3-5" aria-pressed="false">3–5 元</button>
+            <button class="survey-choice secondary" type="button" data-price-band="6-10" aria-pressed="false">6–10 元</button>
+            <button class="survey-choice secondary" type="button" data-price-band="10+" aria-pressed="false">10 元以上</button>
+          </div>
+        </div>
+        <div id="issueQuestion" class="survey-question hidden">
+          <h4 id="issueHeading" tabindex="-1">哪里不太对？</h4>
+          <div id="issueChoices" class="survey-choices" role="group" aria-labelledby="issueHeading">
+            <button class="survey-choice secondary" type="button" data-issue="likeness" aria-pressed="false">不太像我家的</button>
+            <button class="survey-choice secondary" type="button" data-issue="style" aria-pressed="false">风格不喜欢</button>
+            <button class="survey-choice secondary" type="button" data-issue="detail" aria-pressed="false">画得不够细</button>
+            <button class="survey-choice secondary" type="button" data-issue="other" aria-pressed="false">其他</button>
+          </div>
+        </div>
+        <div id="spendQuestion" class="survey-question hidden">
+          <h4 id="spendHeading" tabindex="-1">以前为毛孩子的照片、头像或周边花过钱吗？</h4>
+          <div id="spendChoices" class="survey-choices" role="group" aria-labelledby="spendHeading">
+            <button class="survey-choice secondary" type="button" data-spend="1" aria-pressed="false">花过</button>
+            <button class="survey-choice secondary" type="button" data-spend="2" aria-pressed="false">没花过，但愿意试试</button>
+            <button class="survey-choice secondary" type="button" data-spend="3" aria-pressed="false">没花过，也不感兴趣</button>
+          </div>
         </div>
         <div id="unsatisfiedGuide" class="hidden">
           <p id="unsatisfiedText" class="custom-note"></p>
@@ -173,10 +209,14 @@
           </div>
         </div>
         <p id="surveyStatus" role="status" aria-live="polite"></p>
-        <button id="surveyBackBtn" class="text-button hidden" type="button">‹ 返回重选</button>
       </section>
       <p id="customProgress" class="custom-progress" role="status" aria-live="polite"></p>
       <p id="customError" class="error hidden" role="alert"></p>
+    </dialog>
+    <dialog id="quotaClosedDialog" class="notice-dialog" aria-labelledby="quotaClosedTitle" aria-describedby="quotaClosedBody">
+      <h2 id="quotaClosedTitle">本次作者自费生图数量已达上限</h2>
+      <p id="quotaClosedBody">期待下次能给您更好的体验</p>
+      <button id="closeQuotaClosed" class="secondary" type="button">知道啦</button>
     </dialog>
     <script src="/js/config.js"></script>
     <script type="module" src="/js/audio.js"></script>

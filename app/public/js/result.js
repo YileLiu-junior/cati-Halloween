@@ -2,6 +2,7 @@ import { roleCardUrl, roleAtlasUrl } from "./role-assets.js";
 import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints, fetchQuiz } from "./store.js";
 import { track } from "./track.js";
 import { initCustom } from "./custom.js";
+import { initHistory } from "./history.js";
 import { initResultMedia, probabilityText } from "./result-media.js";
 
 const $ = (id) => document.getElementById(id);
@@ -202,6 +203,7 @@ $("roleCollectionBtn").addEventListener("click", () => { void openRoleCollection
 $("closeCollectionBtn").addEventListener("click", () => $("roleCollectionDialog").close());
 $("roleCollectionDialog").addEventListener("close", () => $("roleCollectionBtn").focus({ preventScroll: true }));
 initCustom(() => entry, media.viewImage);
+initHistory();
 $("againBtn").addEventListener("click", () => {
   if (entry) saveResult(entry);
   // 新测在首页点击开始时创建；此处不清除其他宠物未完成的进度。

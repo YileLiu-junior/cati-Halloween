@@ -11,6 +11,8 @@ PAYMENT_ENABLED = "false"
 PETI_PUBLIC_ORIGIN = "https://peti-avatar-preview.pages.dev"
 AFDIAN_PLAN_ID = "preview-plan"
 AFDIAN_SKU_ID = "preview-sku"
+# 打赏入口是真实的爱发电商品页；测试站不启用订单支付。
+AFDIAN_SUPPORT_URL = "https://afdian.com/order/create?product_type=1&plan_id=2315e4b0d2e911f186f652540025c377&sku=%5B%7B%22sku_id%22%3A%22231df344d2e911f1b46452540025c377%22,%22count%22%3A1%7D%5D&viokrz_ex=0"
 
 [[kv_namespaces]]
 binding = "PETI_KV"

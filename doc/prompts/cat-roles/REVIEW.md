@@ -1,5 +1,7 @@
 # 猫咪分角色 Prompt 集
 
+> 本文件由旧版 `build.mjs` 生成，内容已过期。当前生效的 Prompt 与维护方式见 `README.md`。
+
 最终发给模型的 prompt = `shared.md` + `【角色专属要求】` + `NN-role.md`。
 每次只替换角色专属段，共享身份规则保持一致。合成后的完整 prompt 在 `combined/NN-role.txt`。
 

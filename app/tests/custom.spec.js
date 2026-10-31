@@ -39,7 +39,11 @@ function freeOrder(patch = {}) {
   };
 }
 function feedbackPayload(patch = {}) {
-  return { attemptId: "test-attempt", testId: "test", orderId: "test-order", satisfied: true, priceFen: null, priceAnswered: false, skipped: false, petType: "cat", roleId: "ghost", updatedAt: Date.now(), ...patch };
+  return {
+    attemptId: "test-attempt", testId: "test", orderId: "test-order",
+    satisfied: true, satisfaction: 3, similarity: null, issue: null, priceBand: null, spendHistory: null,
+    priceFen: null, priceAnswered: false, skipped: false, petType: "cat", roleId: "ghost", updatedAt: Date.now(), ...patch,
+  };
 }
 async function mockFreeFlow(page, options = {}) {
   const calls = { posts: [], feedbacks: [], gets: 0 };
@@ -95,11 +99,16 @@ async function uploadPhoto(page) {
   await expect(page.locator("#startFreeBtn")).toBeVisible();
 }
 function answersFeedback(body) {
+  const satisfaction = body.satisfaction ?? (body.satisfied ? 3 : 1);
+  const satisfied = satisfaction >= 2;
   return feedbackPayload({
-    satisfied: body.satisfied,
-    priceFen: body.priceFen ?? null,
-    priceAnswered: body.priceFen != null && body.skipped !== true,
-    skipped: body.skipped === true,
+    satisfaction,
+    satisfied,
+    similarity: satisfied ? body.similarity ?? null : null,
+    priceBand: satisfied ? body.priceBand ?? null : null,
+    issue: satisfied ? null : body.issue ?? null,
+    spendHistory: body.spendHistory ?? null,
+    priceAnswered: satisfied && body.priceBand != null,
   });
 }
 
@@ -180,6 +189,39 @@ test("上传照片并同意后免费按钮可用，首次请求 regenerate=false
   await expect(page.locator("#genStepWait")).toHaveAttribute("data-state", "pending");
 });
 
+test("1000 份用完后点击定制按钮只显示上限提示", async ({ page, request }) => {
+  await page.route("**/api/config**", route => route.fulfill({ json: serviceConfig({ free: quota({ exhausted: true, remaining: 0, browserRemaining: 0 }) }) }));
+  await resultPage(page, request);
+  await page.waitForFunction(() => document.documentElement.dataset.service === "ready");
+  await page.locator("#customBtn").click();
+  await expect(page.locator("#quotaClosedDialog")).toBeVisible();
+  await expect(page.locator("#quotaClosedTitle")).toHaveText("本次作者自费生图数量已达上限");
+  await expect(page.locator("#quotaClosedBody")).toHaveText("期待下次能给您更好的体验");
+  await expect(page.locator("#customDialog")).toBeHidden();
+  await page.locator("#closeQuotaClosed").click();
+  await expect(page.locator("#quotaClosedDialog")).toBeHidden();
+});
+
+test("额度用完但已经生成过头像时仍可进入定制弹窗查看", async ({ page, request }) => {
+  const quizVersion = "cat-2026v4";
+  const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion, source: "custom-test" } })).json();
+  const result = await (await request.post("/api/results", { data: { ...session, petName: "馒头", optionIds: Array.from({ length: 10 }, (_, i) => `q${i + 1}a`) } })).json();
+  const exhausted = serviceConfig({ free: quota({ exhausted: true, remaining: 0, browserRemaining: 0 }) });
+  await page.route("**/api/config**", route => route.fulfill({ json: exhausted }));
+  await page.goto("/");
+  await page.evaluate((state) => localStorage.setItem("peti:v1", JSON.stringify(state)), {
+    ...session, result, petName: "馒头", petType: "cat", quizVersion,
+    generation: { orderId: "test-order", status: "ready", imageUrl: IMAGE_PATH },
+  });
+  await page.goto("/result.html");
+  await page.waitForFunction(() => document.documentElement.dataset.service === "ready");
+  await mockFreeFlow(page, { config: exhausted, order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }) });
+  await page.locator("#customBtn").click();
+  await expect(page.locator("#customDialog")).toBeVisible();
+  await expect(page.locator("#quotaClosedDialog")).toBeHidden();
+  await expect(page.locator("#customImage")).toBeVisible();
+});
+
 test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷", async ({ page, request }) => {
   await resultPage(page, request);
   const flow = await mockFreeFlow(page);
@@ -197,8 +239,8 @@ test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷",
   await expect(page.locator("#saveCustomBtn")).toBeVisible();
   await expect(page.locator("#surveyStep")).toBeVisible();
   await expect(page.locator("#surveyHeading")).toBeFocused();
-  await expect(page.locator("#satisfiedYes")).toBeVisible();
-  await expect(page.locator("#satisfiedNo")).toBeVisible();
+  await expect(page.locator('[data-satisfaction="3"]')).toBeVisible();
+  await expect(page.locator('[data-satisfaction="1"]')).toBeVisible();
 });
 
 test("生成中切换到等待图片生成，完成后隐藏两步进度", async ({ page, request }) => {
@@ -232,22 +274,57 @@ test("点击生成的头像打开大图查看器，保留长按保存与打开�
   await expect(page.locator(".viewer-note")).toContainText("长按图片可保存");
 });
 
-test("不满意与满意问卷都能返回重选，重新提交会覆盖本次记录", async ({ page, request }) => {
+test("问卷四题按顺序展开，答案写进同一次记录", async ({ page, request }) => {
   await resultPage(page, request);
   const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
   await page.locator("#customBtn").click();
-  await page.locator("#satisfiedNo").click();
-  await expect(page.locator("#unsatisfiedGuide")).toBeVisible();
-  await page.locator("#surveyBackBtn").click();
-  await expect(page.locator("#satisfactionChoices")).toBeVisible();
-  await expect(page.locator("#unsatisfiedGuide")).toBeHidden();
-  await page.locator("#satisfiedYes").click();
+  await expect(page.locator("#surveyStep")).toBeVisible();
+  await expect(page.locator("#similarityQuestion")).toBeHidden();
+  await page.locator('[data-satisfaction="3"]').click();
+  await expect(page.locator("#similarityQuestion")).toBeVisible();
+  await expect(page.locator("#priceQuestion")).toBeHidden();
+  await page.locator('[data-similarity="3"]').click();
   await expect(page.locator("#priceQuestion")).toBeVisible();
-  await page.locator("#surveyBackBtn").click();
-  await expect(page.locator("#satisfactionChoices")).toBeVisible();
-  await page.locator("#satisfiedNo").click();
+  await expect(page.locator("#spendQuestion")).toBeHidden();
+  await page.locator('[data-price-band="3-5"]').click();
+  await expect(page.locator("#spendQuestion")).toBeVisible();
+  await page.locator('[data-spend="2"]').click();
+  await expect(page.locator("#surveyStatus")).toHaveText("已记录，谢谢你的反馈。");
+  expect(flow.calls.feedbacks).toHaveLength(4);
+  expect(flow.calls.feedbacks[0]).toMatchObject({ satisfaction: 3 });
+  expect(flow.calls.feedbacks[3]).toMatchObject({ satisfaction: 3, similarity: 3, priceBand: "3-5", spendHistory: 2, issue: null });
+});
+
+test("不太满意改问哪里不对，跳过相似度和价格", async ({ page, request }) => {
+  await resultPage(page, request);
+  const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
+  await page.locator("#customBtn").click();
+  await page.locator('[data-satisfaction="1"]').click();
+  await expect(page.locator("#issueQuestion")).toBeVisible();
+  await expect(page.locator("#issueHeading")).toBeFocused();
+  await expect(page.locator("#similarityQuestion")).toBeHidden();
+  await expect(page.locator("#priceQuestion")).toBeHidden();
+  await page.locator('[data-issue="style"]').click();
+  await expect(page.locator("#spendQuestion")).toBeVisible();
+  await page.locator('[data-spend="1"]').click();
   await expect.poll(() => flow.calls.feedbacks.length).toBe(3);
-  expect(flow.calls.feedbacks[2]).toMatchObject({ satisfied: false, priceFen: null });
+  expect(flow.calls.feedbacks[2]).toMatchObject({ satisfaction: 1, issue: "style", similarity: null, priceBand: null, spendHistory: 1 });
+});
+
+test("换满意度会清掉另一条分支的答案", async ({ page, request }) => {
+  await resultPage(page, request);
+  const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
+  await page.locator("#customBtn").click();
+  await page.locator('[data-satisfaction="3"]').click();
+  await page.locator('[data-similarity="2"]').click();
+  await page.locator('[data-price-band="6-10"]').click();
+  await page.locator('[data-satisfaction="1"]').click();
+  await expect(page.locator("#similarityQuestion")).toBeHidden();
+  await expect(page.locator("#priceQuestion")).toBeHidden();
+  await expect(page.locator("#issueQuestion")).toBeVisible();
+  expect(flow.calls.feedbacks.at(-1)).toMatchObject({ satisfaction: 1, similarity: null, priceBand: null });
+  await page.locator('[data-issue="detail"]').click();
+  expect(flow.calls.feedbacks.at(-1)).toMatchObject({ satisfaction: 1, issue: "detail", similarity: null, priceBand: null });
 });
 
 test("打赏文案强调紫色下划线的“打赏”并跟随当前价格", async ({ page, request }) => {
@@ -265,36 +342,6 @@ test("打赏文案强调紫色下划线的“打赏”并跟随当前价格", as
   expect(style.color).toBe("oklch(0.82 0.12 316)");
 });
 
-test("满意后询问价格，点 2 元提交 priceFen=200", async ({ page, request }) => {
-  await resultPage(page, request);
-  const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
-  await page.locator("#customBtn").click();
-  await expect(page.locator("#surveyStep")).toBeVisible();
-  await page.locator("#satisfiedYes").click();
-  await expect(page.locator("#priceQuestion")).toBeVisible();
-  await expect(page.locator(".price-option")).toHaveCount(3);
-  await expect(page.locator("#skipPriceBtn")).toBeVisible();
-  await expect.poll(() => flow.calls.feedbacks.length).toBe(1);
-  expect(flow.calls.feedbacks[0]).toMatchObject({ satisfied: true, orderId: "test-order", attemptId: "test-attempt" });
-  await page.locator('.price-option[data-price-fen="200"]').click();
-  await expect.poll(() => flow.calls.feedbacks.length).toBe(2);
-  expect(flow.calls.feedbacks[1]).toMatchObject({ satisfied: true, priceFen: 200 });
-  await expect(page.locator("#surveyStatus")).toContainText("愿意支付 2 元");
-});
-
-test("满意后点跳过提交 skipped=true 且不再重复询问价格", async ({ page, request }) => {
-  await resultPage(page, request);
-  const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
-  await page.locator("#customBtn").click();
-  await page.locator("#satisfiedYes").click();
-  await expect(page.locator("#priceQuestion")).toBeVisible();
-  await page.locator("#skipPriceBtn").click();
-  await expect.poll(() => flow.calls.feedbacks.length).toBe(2);
-  expect(flow.calls.feedbacks[1]).toMatchObject({ satisfied: true, skipped: true, priceFen: null });
-  await expect(page.locator("#priceQuestion")).toBeHidden();
-  await expect(page.locator("#surveyStatus")).toContainText("先跳过价格问题");
-});
-
 test("不满意时换角色再试保留照片，回到角色步骤后再次生成 regenerate=true", async ({ page, request }) => {
   await resultPage(page, request);
   const flow = await mockFreeFlow(page, { onFeedback: answersFeedback });
@@ -306,7 +353,7 @@ test("不满意时换角色再试保留照片，回到角色步骤后再次生�
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   await page.clock.fastForward(5000);
   await expect(page.locator("#surveyStep")).toBeVisible();
-  await page.locator("#satisfiedNo").click();
+  await page.locator('[data-satisfaction="1"]').click();
   await expect(page.locator("#unsatisfiedGuide")).toBeVisible();
   await expect(page.locator("#regeneratePhotoBtn")).toBeVisible();
   await expect(page.locator("#regenerateRoleBtn")).toBeVisible();
@@ -327,7 +374,7 @@ test("不满意时换照片再试清空预览与同意勾选，重新上传后 r
   await resultPage(page, request);
   const flow = await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }), onFeedback: answersFeedback });
   await page.locator("#customBtn").click();
-  await page.locator("#satisfiedNo").click();
+  await page.locator('[data-satisfaction="1"]').click();
   await page.locator("#regeneratePhotoBtn").click();
   await expect(page.locator("#photoStep")).toBeVisible();
   await expect(page.locator("#photoPreview")).toBeHidden();
@@ -350,7 +397,7 @@ test("本机免费次数用完且不满意时只显示改进建议，不显示�
     onFeedback: answersFeedback,
   });
   await page.locator("#customBtn").click();
-  await page.locator("#satisfiedNo").click();
+  await page.locator('[data-satisfaction="1"]').click();
   await expect(page.locator("#unsatisfiedGuide")).toBeVisible();
   await expect(page.locator("#unsatisfiedText")).toContainText("建议换一张正脸更清晰");
   await expect(page.locator("#regeneratePhotoBtn")).toBeHidden();

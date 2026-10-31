@@ -8,7 +8,7 @@ export const jpeg = Uint8Array.from([255,216,255,192,0,17,8,2,0,2,0,3,1,17,0,2,1
 export const png = PNG.sync.write(new PNG({ width: 4, height: 4 }));
 export async function fixture() {
   const db = new DatabaseSync(":memory:");
-  for (const name of ["0001_custom_orders.sql", "0002_order_sku.sql", "0003_avatar_delivery.sql", "0004_delivery_fencing.sql", "0005_free_generation.sql"]) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
+  for (const name of ["0001_custom_orders.sql", "0002_order_sku.sql", "0003_avatar_delivery.sql", "0004_delivery_fencing.sql", "0005_free_generation.sql", "0006_feedback_survey.sql"]) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   function prepare(sql) {
     let args = [];
     return { bind(...values) { args = values; return this; }, async first() { return db.prepare(sql).get(...args) || null; },
@@ -34,6 +34,7 @@ export async function fixture() {
 }
 export function configured() {
   GENERATION_CONFIG.size="4x4"; GENERATION_CONFIG.prompts={cat:"cat / {roleId} / {petName}",dog:"dog / {roleId} / {petName}"};
+  GENERATION_CONFIG.rolePrompts={cat:{},dog:{}};
   GENERATION_CONFIG.roleImageKeys={cat:{mummy:"references/style.png"},dog:{mummy:"references/dog-style.png"}};
 }
 export function post(handler,f,data,params={}) {
