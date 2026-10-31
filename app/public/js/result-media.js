@@ -94,9 +94,29 @@ function drawPoster(entry, image, qr) {
 
 export function initResultMedia(getEntry) {
   const share = $("shareDialog"), viewer = $("imageViewer"), viewport = $("imageViewport");
-  let posterPromise, posterUrl, zoom = 1, fitWidth = 0, viewerTrigger;
+  let posterPromise, posterUrl, posterLocalUrl, zoom = 1, fitWidth = 0, viewerTrigger;
   const lockPage = () => document.documentElement.classList.toggle("media-open", share.open || viewer.open);
   const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+  // 微信 WebView 的原生保存不认 blob: 图片；上传到短期托管换取 https 地址。
+  async function hostPoster(blob) {
+    const entry = getEntry();
+    if (!entry?.testId || !entry?.token) return null;
+    try {
+      const response = await fetch("/api/share-images", {
+        method: "POST",
+        headers: { "content-type": "image/png", "X-PT-Test-Id": entry.testId, "X-PT-Token": entry.token },
+        body: blob,
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) return null;
+      const data = await response.json().catch(() => null);
+      return typeof data?.path === "string" && /^\/api\/share-images\/[0-9a-f-]{36}$/i.test(data.path)
+        ? new URL(data.path, location.origin).href
+        : null;
+    } catch {
+      return null;
+    }
+  }
   function setZoom(value) {
     const previousWidth = fitWidth * zoom;
     const x = (viewport.scrollLeft + viewport.clientWidth / 2) / (previousWidth + 32 || 1);
@@ -138,12 +158,36 @@ export function initResultMedia(getEntry) {
   $("viewerImage").addEventListener("dblclick", () => setZoom(zoom === 1 ? 2 : 1));
   window.addEventListener("resize", () => { if (viewer.open) fitImage(); });
 
+  function posterDataUrl() {
+    const url = $("cardCanvas").toDataURL("image/png");
+    return url.length > 2_000_000 ? $("cardCanvas").toDataURL("image/jpeg", 0.92) : url;
+  }
+  function usePosterFallback() {
+    posterUrl = posterDataUrl();
+    $("sharePreviewImage").src = posterUrl;
+    $("saveShareImage").href = posterUrl;
+    return posterUrl;
+  }
+  // 托管地址偶发不可达时，退回到微信也能长按保存的 data URL。
+  $("sharePreviewImage").addEventListener("error", () => {
+    if (isWeChat && !String($("sharePreviewImage").src).startsWith("data:")) usePosterFallback();
+  });
+  $("viewerImage").addEventListener("error", () => {
+    if (isWeChat && !String($("viewerImage").src).startsWith("data:")) $("viewerImage").src = usePosterFallback();
+  });
   async function makePoster() {
     const [qr] = await Promise.all([loadQr(), document.fonts.ready]);
     const canvas = drawPoster(getEntry(), $("roleCardImage"), qr);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("生成分享图片失败，请关闭后重试");
-    posterUrl = URL.createObjectURL(blob);
+    posterLocalUrl = URL.createObjectURL(blob);
+    posterUrl = posterLocalUrl;
+    if (isWeChat) {
+      const hosted = await hostPoster(blob);
+      // 托管失败时退回 data URL；它同样能被微信长按保存，过大再降为 JPEG。
+      posterUrl = hosted || posterDataUrl();
+      if (hosted) { URL.revokeObjectURL(posterLocalUrl); posterLocalUrl = ""; }
+    }
     track("export_ready", { type: "result" });
     return posterUrl;
   }
@@ -177,8 +221,8 @@ export function initResultMedia(getEntry) {
     else $("shareStatus").textContent = "已发起保存；也可以长按预览图片保存。";
   });
   function invalidate() {
-    if (posterUrl) URL.revokeObjectURL(posterUrl);
-    posterPromise = posterUrl = undefined;
+    if (posterLocalUrl) URL.revokeObjectURL(posterLocalUrl);
+    posterPromise = posterUrl = posterLocalUrl = undefined;
     $("sharePreview").classList.add("hidden");
     $("previewShareLarge").classList.add("hidden");
     $("saveShareImage").classList.add("hidden");

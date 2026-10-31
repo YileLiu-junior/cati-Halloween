@@ -418,10 +418,15 @@ test.describe("结果、历史与接口", () => {
       await expect(page.locator("#rarityHelp")).toBeHidden();
       await page.locator("#saveCardBtn").click();
       await expect(page.locator("#saveShareImage")).toBeVisible();
+      // 微信保存不认 blob:，预览与查看器都必须换成可公开访问的地址。
+      const previewSrc = await page.locator("#sharePreviewImage").getAttribute("src");
+      expect(previewSrc).not.toMatch(/^blob:/);
+      expect(previewSrc).toMatch(/\/api\/share-images\/[0-9a-f-]{36}$/);
       await page.locator("#saveShareImage").tap();
       await expect(page.locator("#shareStatus")).toHaveText("请长按上方图片，选择保存到手机。");
       await page.locator("#previewShareLarge").tap();
       await expect(page.locator("#imageViewer")).toBeVisible();
+      expect(await page.locator("#viewerImage").getAttribute("src")).not.toMatch(/^blob:/);
       await page.locator("#zoomInImage").tap();
       await expect(page.locator("#resetImageZoom")).toHaveText("1.5×");
       await page.locator("#closeImageViewer").tap();

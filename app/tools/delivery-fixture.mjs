@@ -16,7 +16,22 @@ export async function fixture() {
   }
   const objects = new Map(), kv = new Map(), messages = [];
   const env = { PETI_DB: { prepare, async batch(statements) { db.exec("BEGIN"); try { const rows=[]; for (const statement of statements) rows.push(await statement.run()); db.exec("COMMIT"); return rows; } catch (error) { db.exec("ROLLBACK"); throw error; } } },
-    PETI_KV: { get: async key => kv.get(key) || null },
+    PETI_KV: {
+      async get(key, options) {
+        const value = kv.get(key);
+        if (value && typeof value === "object" && value.bytes) {
+          if (options?.type === "arrayBuffer") return value.bytes.buffer.slice(value.bytes.byteOffset, value.bytes.byteOffset + value.bytes.byteLength);
+          if (options?.type === "json") return JSON.parse(new TextDecoder().decode(value.bytes));
+          return new TextDecoder().decode(value.bytes);
+        }
+        return value || null;
+      },
+      async put(key, value, options = {}) {
+        if (typeof value === "string") { kv.set(key, value); return; }
+        const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+        kv.set(key, { bytes, metadata: options.metadata ?? null, expirationTtl: options.expirationTtl ?? null });
+      },
+    },
     PETI_IMAGES: { async put(key, body, meta) { objects.set(key, { bytes: new Uint8Array(body), ...meta }); }, async get(key) { const object=objects.get(key); return object ? { ...object, size:object.bytes.length, body:object.bytes, arrayBuffer:async()=>object.bytes.buffer.slice(object.bytes.byteOffset,object.bytes.byteOffset+object.bytes.byteLength) } : null; }, async head(key) { return this.get(key); }, async delete(key) { objects.delete(key); } },
     PETI_DELIVERY_QUEUE: { async send(body) { messages.push(body); } }, ORDER_ACCESS_SECRET: "test-order-secret-12345678901234567890", AVATAR_ADMIN_SECRET: "test-admin-secret-12345678901234567890", PETI_PUBLIC_ORIGIN: "https://pet.test",
     ARK_API_KEY: "test-key", AFDIAN_USER_ID: "creator", AFDIAN_API_TOKEN: "test-token", AFDIAN_PLAN_ID: "plan", AFDIAN_SKU_ID: "sku",
