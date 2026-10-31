@@ -222,3 +222,18 @@
 3. **角色集合**：新增小弹窗，标题“16 个角色”，4×4 网格复用选角图集展示 16 个角色立绘与名称，只浏览不选择；390px 与 320px 均保持四列，关闭后焦点回到入口。实现位于 `result.js`（首次打开时 `fetchQuiz` 并构建网格）。
 
 改动文件：`public/result.html`、`public/js/result.js`、`public/js/result-media.js`、`public/css/style.css`、`tests/quiz.spec.js`。验证：Playwright 67/67 通过，新增角色集合用例并断言朋友圈元素数量为 0。截图 `app/shots/result-role-collection-entry-390.png`、`result-role-collection-390.png`、`result-role-collection-320.png`、`result-share-dialog-390.png`。本轮未部署。
+
+## 23. 2026-10-31 题库文案二次精简与狗版同步（本地完成，未部署）
+
+用户自行缩短猫版角色名与选项文案后，本轮把同样的长度与语气同步到狗版，并按用户要求给 q7n 增加“亲人”轴值。
+
+1. 猫版：用户已改 16 个角色名与 10 题选项文案；q7n 文案为“只喜欢和你玩，猫玩具再好玩也不如你的小纸团”。
+2. 狗版：同步重写 50 条选项与 15 个角色名，保留牵引绳、纸箱、肉干、球与飞盘等狗场景词；猫狗 optionId、axis、delta、points 保持逐项一致。
+3. q4n / q5c / q7n 改为带角色分的方向项：
+   - q4n：两版“特别凶，只认家里人，外人来了就狂/炸毛哈气”，`B+3 / pirate2+werewolf1`。
+   - q5c：两版“天使一般的存在！什么时候都陪伴治愈着你”，`A+3 / nurse1+bride2`，替代原 D 轴神秘项。
+   - q7n：两版“只喜欢和你玩，玩具不如你的球/小纸团”，`A+3 / nurse2+bride1`。
+4. 校验：`validate_quiz.py` 的兜底项改为按“points 为空、每题至多 1 个”识别（q4、q7 允许 0 个）；方向选项规则不变。
+5. 版本：两份题库与 `public/js/config.js` 升到 `cat-2026v4` / `dog-2026v4`；`sessions.js` 旧版兼容改为数组，同时接受 v2/v3。测试中的硬编码版本同步 v4。
+
+验证：`npm run validate` 通过；猫狗各 20000 次模拟，平局率 32.3%，A 轴均值 6.2、B 轴 6.5，16 角色全部可达（最低木乃伊 1.2%，小管家最高 19.9%）；`npm run test:api` 58/58；Playwright 67/67。未部署。

@@ -3,8 +3,8 @@
 
 用法: python tools/validate_quiz.py
 检查：
-1. 结构完整：16 角色 / 10 题 / 每题 5 选项（含 1 个中庸选项）/ TIE_BREAK 恰含 16 个角色 id
-2. 加分合法：中庸选项 axis=None、delta=0、points 为空；其余 axis ∈ 六轴、delta=±3、points 角色存在
+1. 结构完整：16 角色 / 10 题 / 每题 5 选项（qNn 为第 5 项，通常是无角色加分的中庸项）/ TIE_BREAK 恰含 16 个角色 id
+2. 加分合法：每题至多 1 个无角色加分的选项（points 为空；q4n/q5c/q7n 已改为带角色分的方向项）；其余 axis ∈ 六轴、delta=±3、points 角色存在
 3. 题干精简：每题题干不超过 25 个可见字符
 4. 猫狗同构：两版每题 optionId、axis、delta、points 完全一致（quiz-design-dog §0 承诺）
 5. 可达性与占比：随机模拟 20000 次，全部角色可达；输出中庸选项占比与平局率
@@ -46,13 +46,14 @@ def check_structure(data, pet):
             errors.append(f"{pet} {q['id']}: 选项数 {len(opts)} != 5")
         if len(q["text"]) > 25:
             errors.append(f"{pet} {q['id']}: 题干 {len(q['text'])} 字 > 25")
-        neutrals = [o for o in opts if o["axis"] is None]
-        if len(neutrals) != 1:
-            errors.append(f"{pet} {q['id']}: 中庸选项数 {len(neutrals)} != 1")
+        # 无角色加分的兜底选项每至多 1 个；q4/q7 已无兜底项，允许为 0。
+        neutrals = [o for o in opts if o["points"] == {}]
+        if len(neutrals) > 1:
+            errors.append(f"{pet} {q['id']}: 无角色加分选项数 {len(neutrals)} > 1")
         for o in opts:
             if o["axis"] is None:
                 if o["delta"] != 0 or o["points"] != {}:
-                    errors.append(f"{pet} {q['id']}/{o['id']}: 中庸选项须 delta=0 且 points 为空")
+                    errors.append(f"{pet} {q['id']}/{o['id']}: 中线选项须 delta=0 且 points 为空")
                 continue
             if o["axis"] not in AXES:
                 errors.append(f"{pet} {q['id']}/{o['id']}: 非法轴 {o['axis']}")

@@ -6,7 +6,7 @@ const IMAGE_PATH = "/api/jobs/test-order/image";
 const EXPIRES = new Date(Date.now() + 7 * 86_400_000).toISOString();
 
 async function resultPage(page, request, petType = "cat") {
-  const quizVersion = `${petType}-2026v3`;
+  const quizVersion = `${petType}-2026v4`;
   const session = await (await request.post("/api/sessions", { data: { petType, quizVersion, source: "custom-test" } })).json();
   const result = await (await request.post("/api/results", { data: { ...session, petName: "馒头", optionIds: Array.from({ length: 10 }, (_, i) => `q${i + 1}a`) } })).json();
   await page.goto("/");

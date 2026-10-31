@@ -6,7 +6,10 @@ import {
 
 const TTL_30D = 60 * 60 * 24 * 30;
 // 过渡期兼容旧版题库：新版仍以数据文件里的 quizVersion 为准
-const LEGACY_QUIZ_VERSIONS = { cat: "cat-2026v2", dog: "dog-2026v2" };
+const LEGACY_QUIZ_VERSIONS = {
+  cat: ["cat-2026v2", "cat-2026v3"],
+  dog: ["dog-2026v2", "dog-2026v3"],
+};
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -20,7 +23,7 @@ export async function onRequestPost({ request, env }) {
       return apiError("PARAM_MISSING", "petType 必须为 cat 或 dog", 400);
     }
     const quiz = QUIZZES[petType];
-    if (!quizVersion || (quizVersion !== quiz.quizVersion && quizVersion !== LEGACY_QUIZ_VERSIONS[petType])) {
+    if (!quizVersion || (quizVersion !== quiz.quizVersion && !(LEGACY_QUIZ_VERSIONS[petType] || []).includes(quizVersion))) {
       // quizVersion 非法或与 petType 不匹配一律 PARAM_MISSING（验收 §10.10）
       return apiError("PARAM_MISSING", "quizVersion 非法或与宠物类型不匹配", 400);
     }

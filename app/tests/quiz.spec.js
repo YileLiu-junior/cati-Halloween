@@ -464,7 +464,7 @@ test.describe("结果、历史与接口", () => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       newSession = await (await page.request.post("/api/sessions", {
-        data: { petType: "cat", quizVersion: "cat-2026v3", source: "test" },
+        data: { petType: "cat", quizVersion: "cat-2026v4", source: "test" },
       })).json();
       await page.evaluate((state) => localStorage.setItem("peti:v1", JSON.stringify(state)), {
         ...original, ...newSession, petName: "团子", answers: {}, currentQ: 0, result: null,
@@ -532,13 +532,13 @@ test.describe("结果、历史与接口", () => {
 
 test.describe("接口校验与狗版", () => {
   test("quizVersion 与 petType 不匹配返回 PARAM_MISSING", async ({ request }) => {
-    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v3", source: "test" } });
+    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v4", source: "test" } });
     expect(response.status()).toBe(400);
     expect((await response.json()).code).toBe("PARAM_MISSING");
   });
 
   test("petName 超 12 码点返回 PET_NAME_TOO_LONG", async ({ request }) => {
-    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v3", source: "test" } })).json();
+    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v4", source: "test" } })).json();
     const response = await request.post("/api/results", { data: { ...session, optionIds: Array.from({ length: 10 }, (_, i) => `q${i + 1}a`), petName: "一二三四五六七八九十十一二" } });
     expect((await response.json()).code).toBe("PET_NAME_TOO_LONG");
   });

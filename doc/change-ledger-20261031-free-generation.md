@@ -103,7 +103,7 @@
 
 ## 8. 题库与计分
 
-- 每题 5 个选项：4 个方向选项 + 1 个中庸选项 `qNn`（`axis:null, delta:0, points:{}`）。
+- 每题 5 个选项。多数题的 `qNn` 仍是 `axis:null, delta:0, points:{}` 的中庸项；例外：q4n 为 `B+3 / pirate2+werewolf1`，q7n 为 `A+3 / nurse2+bride1`，q5c 改为 `A+3 / nurse1+bride2`（两版同一句“天使”文案，替代原 D 轴“神秘消失”项）。
 - 中庸选项猫狗同 id、同分值，文案可不同。
 - 题干全部 ≤25 可见字符。本轮只改了猫版 q1（28 → 17 字）。
 - 版本：`cat-2026v3` / `dog-2026v3`；`public/js/config.js` 同步。
@@ -186,3 +186,17 @@
 4. 测试：`quiz.spec.js` 删除朋友圈点击断言，新增 `#shareMomentsBtn` / `#momentsGuide` 数量为 0、角色集合 16 项与下划线断言。
 
 截图：`result-role-collection-entry-390.png`、`result-role-collection-390.png`、`result-role-collection-320.png`、`result-share-dialog-390.png`。Playwright 67/67。未部署。
+
+## 15. 2026-10-31 题库文案二次精简与狗版同步（本地完成，未部署）
+
+1. **猫版由用户改写**：16 个角色名去掉冗余的“的/大爆发”等词；10 题的方向选项与 qNn 文案整体缩短，`q4`、`q8` 等部分选项保留原句。
+2. **狗版同步**：按猫版的新长度与语气逐题重写 50 条选项与 15 个角色名（witch 未改），保留狗的牵引绳、纸箱、肉干、球和飞盘等场景词；猫狗 optionId、axis、delta、points 仍逐项一致。
+3. **q4n / q5c / q7n 改分值**：
+   - q4n：狗版“特别凶，只认家里人，外人来了就狂吠”改为 `axis:"B", delta:3, points:{"pirate":2,"werewolf":1}`；猫版同步为“特别凶，只认家里人，外人来了就炸毛哈气”，分值相同。
+   - q5c：两版统一为“它就是个天使一般的存在！什么时候都陪伴治愈着你”，从 `D+3 / witch2+clown1` 改为 `A+3 / nurse1+bride2`，q5 失去原来的戏精方向项。
+   - q7n：两版统一为“只喜欢和你玩，狗/猫玩具再好玩也不如你手里的球/小纸团”，`A+3 / nurse2+bride1`。
+4. **校验规则调整**：`validate_quiz.py` 的兜底项判定从“axis 为 null”改为“points 为空、每题至多 1 个”（q4、q7 允许 0 个，因为 q4n、q7n 已带角色分）；其余方向选项仍要求 axis ∈ 六轴、delta=±3、points 角色合法。
+5. **版本升 v4**：两份 JSON 与 `public/js/config.js` 升到 `cat-2026v4` / `dog-2026v4`；`sessions.js` 的旧版兼容改为数组，同时接受 v2 与 v3，避免缓存页面提交失败。
+6. **测试**：测试中的硬编码版本从 v3 改为 v4。
+
+验证：`npm run validate` 通过；猫狗各 20000 次模拟，兜底项占比 16.0%，平局率 32.3%，A 轴均值 6.2、B 轴 6.5，16 角色全部可达（最低木乃伊 1.2%，最高小管家 19.9%）；`npm run test:api` 58/58；Playwright 67/67。未部署。
