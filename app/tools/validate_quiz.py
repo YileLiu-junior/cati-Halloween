@@ -3,10 +3,11 @@
 
 用法: python tools/validate_quiz.py
 检查：
-1. 结构完整：16 角色 / 10 题 / 每题 4 选项 / TIE_BREAK 恰含 16 个角色 id
-2. 加分合法：axis ∈ 六轴、delta=±3、points 角色存在
-3. 猫狗同构：两版每题 optionId、axis、delta、points 完全一致（quiz-design-dog §0 承诺）
-4. 可达性与占比：随机模拟 20000 次，全部角色可达
+1. 结构完整：16 角色 / 10 题 / 每题 5 选项（含 1 个中庸选项）/ TIE_BREAK 恰含 16 个角色 id
+2. 加分合法：中庸选项 axis=None、delta=0、points 为空；其余 axis ∈ 六轴、delta=±3、points 角色存在
+3. 题干精简：每题题干不超过 25 个可见字符
+4. 猫狗同构：两版每题 optionId、axis、delta、points 完全一致（quiz-design-dog §0 承诺）
+5. 可达性与占比：随机模拟 20000 次，全部角色可达；输出中庸选项占比与平局率
 """
 import json
 import random
@@ -40,9 +41,19 @@ def check_structure(data, pet):
     if len(qs) != 10:
         errors.append(f"{pet}: 题量 {len(qs)} != 10")
     for q in qs:
-        if len(q["options"]) != 4:
-            errors.append(f"{pet} {q['id']}: 选项数 {len(q['options'])} != 4")
-        for o in q["options"]:
+        opts = q["options"]
+        if len(opts) != 5:
+            errors.append(f"{pet} {q['id']}: 选项数 {len(opts)} != 5")
+        if len(q["text"]) > 25:
+            errors.append(f"{pet} {q['id']}: 题干 {len(q['text'])} 字 > 25")
+        neutrals = [o for o in opts if o["axis"] is None]
+        if len(neutrals) != 1:
+            errors.append(f"{pet} {q['id']}: 中庸选项数 {len(neutrals)} != 1")
+        for o in opts:
+            if o["axis"] is None:
+                if o["delta"] != 0 or o["points"] != {}:
+                    errors.append(f"{pet} {q['id']}/{o['id']}: 中庸选项须 delta=0 且 points 为空")
+                continue
             if o["axis"] not in AXES:
                 errors.append(f"{pet} {q['id']}/{o['id']}: 非法轴 {o['axis']}")
             if o["delta"] not in (3, -3):
@@ -50,8 +61,6 @@ def check_structure(data, pet):
             for cid in o["points"]:
                 if cid not in CHAR_IDS:
                     errors.append(f"{pet} {q['id']}/{o['id']}: 未知角色 {cid}")
-            if not (1 <= len(data["defaultPetName"] or "") if False else True):
-                pass
     # 稀有度齐全
     for c in data["characters"]:
         if not isinstance(c.get("rarityPct"), (int, float)):
@@ -78,7 +87,8 @@ def score(picks):
     axis = {a: 5.0 for a in AXES}
     for (axis_delta, char_pts) in picks:
         a, d = axis_delta
-        axis[a] += d
+        if a is not None:
+            axis[a] += d
         for cid, pts in char_pts:
             chars[cid] += pts
     return chars, [max(0.0, min(10.0, axis[a])) for a in AXES]
@@ -89,15 +99,23 @@ def simulate(data, n=20000, seed=42):
     tie = data["tieBreak"]
     tally = Counter()
     axis_sums = []
+    neutral_picks = 0
+    tie_tests = 0
     for _ in range(n):
         picks = []
         for q in data["questions"]:
             o = rng.choice(q["options"])
+            if o["axis"] is None:
+                neutral_picks += 1
             picks.append(((o["axis"], o["delta"]), list(o["points"].items())))
         chars, vec = score(picks)
-        tally[max(tie, key=lambda cid: chars[cid])] += 1
+        top = max(chars.values())
+        winners = [cid for cid in tie if chars[cid] == top]
+        if len(winners) > 1:
+            tie_tests += 1
+        tally[winners[0]] += 1
         axis_sums.append(vec)
-    return tally, axis_sums, n
+    return tally, axis_sums, n, neutral_picks, tie_tests
 
 
 def main():
@@ -106,25 +124,35 @@ def main():
     errors += check_isomorphic(cat, dog)
 
     name_map = {c["id"]: c["name"] for c in cat["characters"]}
+    warnings = []
     for pet, data in (("cat", cat), ("dog", dog)):
-        tally, axis_sums, n = simulate(data)
+        tally, axis_sums, n, neutral_picks, tie_tests = simulate(data)
         shares = {cid: tally.get(cid, 0) / n * 100 for cid in CHAR_IDS}
         missing = [name_map[c] for c in CHAR_IDS if shares[c] == 0]
         if missing:
             errors.append(f"{pet}: 抽不中角色 {missing}")
+        for cid in CHAR_IDS:
+            if 0 < shares[cid] < 0.5:
+                warnings.append(f"{pet}: 角色 {name_map[cid]} 份额 {shares[cid]:.2f}% < 0.5%")
         means = [statistics.mean(v[i] for v in axis_sums) for i in range(6)]
         print(f"== {pet} 模拟（n={n}，种子 42）==")
         for cid in sorted(CHAR_IDS, key=lambda c: -shares[c]):
             print(f"  {shares[cid]:5.1f}%  {name_map[cid]}")
         print("  六轴均值:", {a: round(m, 1) for a, m in zip(AXES, means)})
+        print(f"  中庸选项占比: {neutral_picks / (n * len(data['questions'])) * 100:.1f}%")
+        print(f"  平局率: {tie_tests / n * 100:.1f}%")
         print()
 
+    if warnings:
+        print("警告（不阻断）：")
+        for w in warnings:
+            print("  -", w)
     if errors:
         print("校验失败：")
         for e in errors:
             print("  -", e)
         sys.exit(1)
-    print("校验通过：结构 / 加分 / 猫狗同构 / 可达性 全部 OK")
+    print("校验通过：结构 / 加分 / 题干 / 猫狗同构 / 可达性 全部 OK")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ export const jpeg = Uint8Array.from([255,216,255,192,0,17,8,2,0,2,0,3,1,17,0,2,1
 export const png = PNG.sync.write(new PNG({ width: 4, height: 4 }));
 export async function fixture() {
   const db = new DatabaseSync(":memory:");
-  for (const name of ["0001_custom_orders.sql", "0002_order_sku.sql", "0003_avatar_delivery.sql", "0004_delivery_fencing.sql"]) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
+  for (const name of ["0001_custom_orders.sql", "0002_order_sku.sql", "0003_avatar_delivery.sql", "0004_delivery_fencing.sql", "0005_free_generation.sql"]) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   function prepare(sql) {
     let args = [];
     return { bind(...values) { args = values; return this; }, async first() { return db.prepare(sql).get(...args) || null; },
@@ -21,6 +21,7 @@ export async function fixture() {
     PETI_DELIVERY_QUEUE: { async send(body) { messages.push(body); } }, ORDER_ACCESS_SECRET: "test-order-secret-12345678901234567890", AVATAR_ADMIN_SECRET: "test-admin-secret-12345678901234567890", PETI_PUBLIC_ORIGIN: "https://pet.test",
     ARK_API_KEY: "test-key", AFDIAN_USER_ID: "creator", AFDIAN_API_TOKEN: "test-token", AFDIAN_PLAN_ID: "plan", AFDIAN_SKU_ID: "sku",
     AFDIAN_PAY_URL: 'https://afdian.com/order/create?product_type=1&plan_id=plan&sku=%5B%7B%22sku_id%22%3A%22sku%22,%22count%22%3A1%7D%5D',
+    FREE_GENERATION_ENABLED: "true", PAYMENT_ENABLED: "true",
   };
   db.prepare("INSERT INTO delivery_control VALUES ('heartbeat','ok',?)").run(Date.now());
   const testId=crypto.randomUUID(), token=crypto.randomUUID().replaceAll("-",""), tokenHash=await sha256Hex(token), photoId=crypto.randomUUID();

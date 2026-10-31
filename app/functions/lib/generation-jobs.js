@@ -1,5 +1,5 @@
 import { buildImageRequest, generateImage } from "./generate.js";
-import { readPhoto, PHOTO_TTL, requireGeneration } from "./custom.js";
+import { isFreeOrder, readPhoto, PHOTO_TTL, requireGeneration } from "./custom.js";
 import { refundLocked } from "./delivery-store.js";
 
 export async function processGeneration(env, orderId) {
@@ -19,7 +19,7 @@ export async function processGeneration(env, orderId) {
   let called = false, cancelled = false;
   try {
     const result = JSON.parse(order.result_json);
-    await requireGeneration(env, result);
+    await requireGeneration(env, result, isFreeOrder(order));
     const photo = await readPhoto(env, order.photo_id, order.token_hash);
     const request = await buildImageRequest(env, result, photo);
     // 再查退款锁，申请在备料期间到达时不启动收费调用。
@@ -62,20 +62,33 @@ export async function finishStoredImage(env, orderId, attemptId, imageKey, recov
       .bind(imageKey, Date.now(), Date.now() + PHOTO_TTL, orderId, orderId, attemptId, recoveryId, recoveryId),
     env.PETI_DB.prepare("UPDATE delivery_jobs SET state=CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND status='ready' AND image_key=? AND primary_refunded=0 AND refund_status IN ('none','rejected')) THEN 'succeeded' ELSE 'blocked' END,lease_until=0,recovery_id=NULL,updated_at=? WHERE order_id=? AND attempt_id=? AND (? IS NULL OR recovery_id=?)")
       .bind(orderId, imageKey, Date.now(), orderId, attemptId, recoveryId, recoveryId),
-    env.PETI_DB.prepare("INSERT OR IGNORE INTO avatar_notifications (id,order_id,event) SELECT ?,id,'ready' FROM orders WHERE id=? AND status='ready' AND image_key=? AND primary_refunded=0 AND refund_status IN ('none','rejected')")
+    env.PETI_DB.prepare("INSERT OR IGNORE INTO avatar_notifications (id,order_id,event) SELECT ?,id,'ready' FROM orders WHERE id=? AND status='ready' AND image_key=? AND amount_fen>0 AND primary_refunded=0 AND refund_status IN ('none','rejected')")
       .bind(`${orderId}:ready`, orderId, imageKey),
   ]);
 }
 
 async function finishFailure(env, orderId, attemptId, state, code, retryable, recoveryId = null) {
+  const now = Date.now();
   await env.PETI_DB.batch([
     env.PETI_DB.prepare("UPDATE generation_attempts SET state=?,stage='finished',finished_at=?,elapsed_ms=?-started_at,error_code=? WHERE id=? AND EXISTS (SELECT 1 FROM delivery_jobs WHERE order_id=? AND attempt_id=? AND ((? IS NULL AND state IN ('running','recovering','uncertain')) OR recovery_id=?))")
-      .bind(state, Date.now(), Date.now(), code, attemptId, orderId, attemptId, recoveryId, recoveryId),
+      .bind(state, now, now, code, attemptId, orderId, attemptId, recoveryId, recoveryId),
     env.PETI_DB.prepare("UPDATE orders SET status=?,retryable=?,error_code=? WHERE id=? AND status IN ('generating','uncertain') AND EXISTS (SELECT 1 FROM delivery_jobs WHERE order_id=? AND attempt_id=? AND ((? IS NULL AND state IN ('running','recovering','uncertain')) OR recovery_id=?))")
       .bind(state, retryable ? 1 : 0, code, orderId, orderId, attemptId, recoveryId, recoveryId),
+    // 免费单失败退回：先按 attempt 记台账，只有台账未处理过才退回，重复调用不会二次扣减。
+    env.PETI_DB.prepare("INSERT OR IGNORE INTO free_quota_refunds (attempt_id, order_id, browser_key, applied, created_at) SELECT ?, id, free_browser_key, 0, ? FROM orders WHERE id=? AND amount_fen=0 AND plan_id='free' AND free_quota_charged=1 AND free_quota_refunded=0 AND status=? AND EXISTS (SELECT 1 FROM delivery_jobs WHERE order_id=? AND attempt_id=? AND ((? IS NULL AND state IN ('running','recovering','uncertain')) OR recovery_id=?))")
+      .bind(attemptId, now, orderId, state, orderId, attemptId, recoveryId, recoveryId),
+    env.PETI_DB.prepare("UPDATE free_quota SET used=MAX(0, used-1), updated_at=? WHERE id=1 AND EXISTS (SELECT 1 FROM free_quota_refunds WHERE attempt_id=? AND applied=0) AND EXISTS (SELECT 1 FROM orders WHERE id=? AND free_quota_refunded=0)")
+      .bind(now, attemptId, orderId),
+    env.PETI_DB.prepare("UPDATE free_usage SET used=MAX(0, used-1), updated_at=? WHERE browser_key=(SELECT browser_key FROM free_quota_refunds WHERE attempt_id=?) AND EXISTS (SELECT 1 FROM free_quota_refunds WHERE attempt_id=? AND applied=0) AND EXISTS (SELECT 1 FROM orders WHERE id=? AND free_quota_refunded=0)")
+      .bind(now, attemptId, attemptId, orderId),
+    env.PETI_DB.prepare("UPDATE orders SET free_quota_refunded=1, free_refund_attempt_id=? WHERE id=? AND free_quota_refunded=0 AND EXISTS (SELECT 1 FROM free_quota_refunds WHERE attempt_id=? AND applied=0)")
+      .bind(attemptId, orderId, attemptId),
+    env.PETI_DB.prepare("UPDATE free_quota_refunds SET applied=1 WHERE attempt_id=? AND applied=0")
+      .bind(attemptId),
     env.PETI_DB.prepare("UPDATE delivery_jobs SET state=?,lease_until=0,recovery_id=NULL,updated_at=?,error_code=? WHERE order_id=? AND attempt_id=? AND ((? IS NULL AND state IN ('running','recovering','uncertain')) OR recovery_id=?)")
-      .bind(state, Date.now(), code, orderId, attemptId, recoveryId, recoveryId),
-    env.PETI_DB.prepare("INSERT OR IGNORE INTO avatar_notifications (id,order_id,event) SELECT ?,id,'failed' FROM orders WHERE id=? AND status IN ('failed','uncertain') AND EXISTS (SELECT 1 FROM delivery_jobs WHERE order_id=? AND attempt_id=?)")
+      .bind(state, now, code, orderId, attemptId, recoveryId, recoveryId),
+    // 免费单没有私信通知渠道，避免写入永远 pending 的提醒。
+    env.PETI_DB.prepare("INSERT OR IGNORE INTO avatar_notifications (id,order_id,event) SELECT ?,id,'failed' FROM orders WHERE id=? AND amount_fen>0 AND status IN ('failed','uncertain') AND EXISTS (SELECT 1 FROM delivery_jobs WHERE order_id=? AND attempt_id=?)")
       .bind(`${orderId}:failed`, orderId, orderId, attemptId),
   ]);
 }

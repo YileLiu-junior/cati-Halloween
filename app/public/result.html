@@ -74,12 +74,18 @@
     <dialog id="customDialog" class="custom-dialog" aria-labelledby="customTitle" aria-describedby="customIntro">
       <div class="custom-heading">
         <p class="custom-kicker">毛孩子的万圣节头像</p>
-        <button id="closeCustomBtn" class="icon-button" aria-label="关闭定制窗口" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+        <div class="custom-heading-actions">
+          <button id="freeQuotaBadge" class="quota-badge" type="button" aria-expanded="false" aria-controls="freeQuotaHelp" aria-describedby="freeQuotaHelp">
+            <span class="quota-badge-label">限时免费 1000 份</span>
+          </button>
+          <button id="closeCustomBtn" class="icon-button" aria-label="关闭定制窗口" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+        </div>
       </div>
+      <p id="freeQuotaHelp" class="custom-note quota-help hidden" role="status" aria-live="polite"></p>
       <h2 id="customTitle">想让它扮演谁？</h2>
       <p id="customIntro" class="custom-intro">用测出的角色，或挑选一个喜欢的造型。</p>
       <ol class="custom-steps" aria-label="定制步骤">
-        <li id="stepRole" aria-current="step">1 选择角色</li><li id="stepPhoto">2 上传照片</li><li id="stepPayment">3 确认付款</li><li id="stepGenerate">4 生成头像</li>
+        <li id="stepRole" aria-current="step">1 选择角色</li><li id="stepPhoto">2 上传照片</li><li id="stepGenerate">3 生成头像</li>
       </ol>
       <section id="roleStep">
         <div id="roleChoice">
@@ -113,42 +119,41 @@
         <p id="photoHelp" class="custom-note">照片短边至少 512px。上传前会压缩照片并移除元信息。</p>
         <label class="photo-consent"><input id="photoConsent" type="checkbox" /><span>我同意照片仅用于本次定制，并由第三方 AI 生图服务处理。云端照片和生成图片保留 7 天。请勿上传人脸或证件。</span></label>
         <button id="uploadPhotoBtn" class="secondary" disabled type="button">上传这张照片</button>
-        <button id="generatePaidBtn" class="primary hidden" type="button">确认头像定制</button>
-        <p id="customAvailability" class="custom-note hidden">付费定制暂未开放。当前可体验选角色和上传照片，暂不收款。</p>
-      </section>
-      <section id="paymentStep" class="hidden">
-        <p id="paymentAmount" class="payment-amount"></p>
-        <p class="selected-role">定制角色：<strong id="paymentRoleName"></strong></p>
-        <p class="custom-note" id="paymentInstructions">付款后自动开始生成，无需复制订单号。进度与头像入口将发送到付款所用的爱发电账号。代付时请留意收图账号。</p>
-        <details class="payment-order"><summary>查看定制订单信息</summary><div class="payment-reference"><code id="paymentReference"></code><button id="copyPaymentBtn" class="text-button" type="button">复制</button></div></details>
-        <a id="payLink" class="primary custom-pay-link" target="_blank" rel="noopener noreferrer">前往爱发电付款</a>
-        <button id="checkPaymentBtn" class="secondary" type="button">我已付款，核对状态</button>
-        <details class="payment-order"><summary>付款后仍未确认？</summary>
-          <label class="field"><span>爱发电订单号</span><input id="platformOrderNo" inputmode="numeric" autocomplete="off" maxlength="40" placeholder="从爱发电订单详情复制" /></label>
-          <button id="confirmPaymentBtn" class="secondary" type="button">核对订单号</button>
-        </details>
+        <button id="startFreeBtn" class="primary hidden" type="button">免费生成头像</button>
+        <p id="freeQuotaNote" class="custom-note"></p>
       </section>
       <section id="generationStep" class="hidden">
         <p id="generationMessage" role="status"></p>
         <button id="checkJobBtn" class="secondary hidden" type="button">查询进度</button>
-        <button id="retryJobBtn" class="primary hidden" type="button">重试生成</button>
+        <button id="retryJobBtn" class="primary hidden" type="button">再试一次</button>
         <figure id="customOutput" class="hidden"><img id="customImage" alt="毛孩子的万圣节头像" /><figcaption class="custom-note">AI 生成 · 请在 7 天内保存</figcaption></figure>
         <button id="saveCustomBtn" class="primary hidden" type="button">保存头像</button>
       </section>
-      <section id="refundSection" class="avatar-support hidden" aria-labelledby="refundHeading">
-        <h3 id="refundHeading">需要帮助？</h3>
-        <p id="refundHint" class="custom-note"></p>
-        <button id="openRefundBtn" class="text-button" type="button" aria-expanded="false" aria-controls="refundForm">申请退款或核对付款</button>
-        <form id="refundForm" class="hidden">
-          <label class="field"><span>申请原因</span><select id="refundReason"><option value="not_delivered">已付款，未收到头像</option><option value="generation_failed">头像生成失败</option><option value="duplicate_payment">重复付款</option><option value="image_quality">头像效果有问题</option><option value="payment_unconfirmed">已付款，仍未识别</option></select></label>
-          <label class="field"><span>补充说明（选填）</span><textarea id="refundDetails" maxlength="500" rows="3"></textarea></label>
-          <label class="field"><span>通知方式（选填）</span><input id="refundContact" maxlength="120" autocomplete="off" placeholder="邮箱或爱发电昵称" /></label>
-          <button id="submitRefundBtn" class="secondary" type="submit">提交申请</button>
-          <p class="custom-note">订单信息会自动带入。提交后暂停新的生成与重试。24 小时内首次审核，到账时间以退款渠道为准。</p>
-        </form>
-        <button id="withdrawRefundBtn" class="text-button hidden" type="button">撤回退款申请</button>
-        <p id="refundStatus" role="status" aria-live="polite"></p>
+      <section id="surveyStep" class="hidden" aria-labelledby="surveyHeading">
+        <h3 id="surveyHeading" tabindex="-1">这张头像还满意吗？</h3>
+        <div id="satisfactionChoices" role="group" aria-labelledby="surveyHeading">
+          <button id="satisfiedYes" class="secondary" type="button">满意</button>
+          <button id="satisfiedNo" class="secondary" type="button">不太满意</button>
+        </div>
+        <div id="priceQuestion" class="hidden">
+          <h4 id="priceHeading">如果这张头像收费，你愿意付多少？</h4>
+          <div id="priceChoices" role="group" aria-labelledby="priceHeading">
+            <button class="price-option secondary" type="button" data-price-fen="100">1 元</button>
+            <button class="price-option secondary" type="button" data-price-fen="200">2 元</button>
+            <button class="price-option secondary" type="button" data-price-fen="600">6 元</button>
+          </div>
+          <button id="skipPriceBtn" class="text-button" type="button">跳过</button>
+        </div>
+        <div id="unsatisfiedGuide" class="hidden">
+          <p id="unsatisfiedText" class="custom-note"></p>
+          <div id="regenerateChoices">
+            <button id="regeneratePhotoBtn" class="secondary" type="button">换一张照片再试</button>
+            <button id="regenerateRoleBtn" class="secondary" type="button">换个角色再试</button>
+          </div>
+        </div>
+        <p id="surveyStatus" role="status" aria-live="polite"></p>
       </section>
+      <a id="tipAuthorLink" class="text-button custom-tip hidden" href="#" target="_blank" rel="noopener noreferrer">喜欢这张头像？打赏作者</a>
       <p id="customProgress" class="custom-progress" role="status" aria-live="polite"></p>
       <p id="customError" class="error hidden" role="alert"></p>
     </dialog>

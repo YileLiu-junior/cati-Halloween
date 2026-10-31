@@ -7,3 +7,6 @@ ORDER_ACCESS_SECRET=""
 AVATAR_ADMIN_SECRET=""
 # 使用独立的 32 字符以上随机值。Pages 与 delivery Worker 的 ORDER_ACCESS_SECRET 必须一致。
 # 商品、型号与付款链接已配置在 wrangler.toml，密钥继续留空。
+# 限时免费生图总开关与付款链路开关；免费体验期间付款关闭。
+FREE_GENERATION_ENABLED="true"
+PAYMENT_ENABLED="false"

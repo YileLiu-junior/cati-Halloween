@@ -1,15 +1,34 @@
 import { roleAtlasUrl } from "./role-assets.js";
-import { fetchQuiz } from "./store.js";
-import { initAvatarSupport, refundLocked, imageWithheld } from "./avatar-support.js";
+import { fetchQuiz, getState, setState } from "./store.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id, visible = true) => $(id).classList.toggle("hidden", !visible);
-const yuan = (fen) => String(fen / 100);
+
+// 免费流程文案集中维护，避免各分支出现付款或退款表述。
+const TEXT = {
+  badge: (remaining) => `限时免费 · 剩 ${remaining} 份`,
+  closed: "免费通道已关闭",
+  maintenanceBadge: "免费生图维护中",
+  helpNormal: "现在生成头像免费：每个浏览器最多 2 次，全站限量 1000 份。生成失败或超时会退还次数。",
+  helpClosed: "这轮 1000 份免费头像已经领完啦。角色卡和测评结果仍然可以保存，感谢参与。",
+  browserLimit: "这台浏览器已经免费生成过 2 次了。可以换个浏览器，或等下一轮开放再来。",
+  serviceNotConfigured: "免费生图通道正在准备中，请稍后再来。",
+  maintenance: "生图服务正在维护，暂时无法开始生成，请稍后再试。已填写的照片和选择会保留。",
+  failed: "这次生成没有完成，本次不占用免费次数。可以换一张照片或换个角色再试一次。",
+  uncertain: "生成结果还在确认中，本次暂不占用免费次数；如果稍后收到头像，会直接显示在这里。",
+  unsatisfiedWithQuota: "没关系，可以换一张照片或换个角色再生成一次（本次会使用第 2 次免费机会）。",
+  unsatisfiedNoQuota: "没关系，这张可以先保存。建议换一张正脸更清晰、光线更均匀的照片，或选一个更贴近它性格的角色，下次开放时再试。",
+  feedbackFailed: "反馈暂时没有保存成功，不影响头像保存，可以稍后再试",
+  legacy: "这份测评之前创建过付款订单，请联系作者处理。",
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function initCustom(getEntry) {
   const dialog = $("customDialog");
   let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
-  let busy = false, pollTimer, pollStart, imageLoading = false;
+  let free = null, feedback = null, browserId = null, regenerating = false;
+  let busy = false, pollTimer, pollStart, imageLoading = false, surveyFocusAttempt = null;
   let restoring = false, pickingPhoto = false, opening = 0;
   const roleImage = $("browseRoleImage");
   let roleRequest;
@@ -37,18 +56,66 @@ export function initCustom(getEntry) {
 
   function error(message) { $("customError").textContent = message; show("customError", Boolean(message)); }
   function progress(message) { $("customProgress").textContent = message; }
+  function ensureBrowserId() {
+    if (browserId) return browserId;
+    const saved = getState().anonId;
+    if (typeof saved === "string" && UUID.test(saved)) { browserId = saved; return browserId; }
+    browserId = crypto.randomUUID();
+    setState({ anonId: browserId });
+    return browserId;
+  }
+  function freeState() { return free || config?.free || null; }
+  function renderQuota() {
+    const data = freeState();
+    const badge = $("freeQuotaBadge");
+    const unavailable = Boolean(config && !config.available) || data?.enabled === false;
+    const closed = Boolean(data?.exhausted);
+    badge.dataset.state = closed || unavailable ? "closed" : "open";
+    badge.querySelector(".quota-badge-label").textContent = closed
+      ? TEXT.closed
+      : unavailable ? TEXT.maintenanceBadge : TEXT.badge(data?.remaining ?? 0);
+    // 维护与未配置都先说明原因，避免角标显示可用的同时按钮点不动。
+    $("freeQuotaHelp").textContent = closed ? TEXT.helpClosed
+      : data?.enabled === false ? TEXT.serviceNotConfigured
+      : unavailable ? (config?.free?.reason === "DELIVERY_UNAVAILABLE" ? TEXT.maintenance : TEXT.serviceNotConfigured)
+      : TEXT.helpNormal;
+  }
+  function renderQuotaNote() {
+    const note = $("freeQuotaNote");
+    const data = freeState();
+    if (!data) { note.textContent = ""; return; }
+    if (data.exhausted) { note.textContent = TEXT.helpClosed; return; }
+    if (data.browserExhausted) { note.textContent = TEXT.browserLimit; return; }
+    if (!config?.available) {
+      // 维护原因以 /api/config 为准；订单查询接口只返回额度快照。
+      const reason = config?.free?.reason || data.reason;
+      note.textContent = reason === "DELIVERY_UNAVAILABLE" ? TEXT.maintenance : TEXT.serviceNotConfigured;
+      return;
+    }
+    if (data.browserRemaining == null) { note.textContent = TEXT.helpNormal; return; }
+    note.textContent = `这台浏览器还可以免费生成 ${data.browserRemaining} 次。`;
+  }
+  function quotaAllowsRegenerate() {
+    const data = freeState();
+    return Boolean(data && !data.exhausted && data.browserRemaining > 0);
+  }
+  function canStartFree() {
+    const data = freeState();
+    return Boolean(config?.available && !busy && !restoring && photo && $("photoConsent").checked
+      && (!order || order.free) && data && !data.exhausted && !data.browserExhausted);
+  }
   function buttons() {
     $("useResultRole").disabled = busy || !roles.length;
     $("browseRoles").disabled = busy || !roles.length;
     $("uploadPhotoBtn").disabled = busy || restoring || !normalized || !$("photoConsent").checked;
-    $("generatePaidBtn").disabled = busy || restoring || !config?.available || !photo || !$("photoConsent").checked;
+    $("startFreeBtn").disabled = busy || restoring || !canStartFree();
     $("petPhoto").disabled = busy;
     $("pickPhotoBtn").disabled = busy;
     $("photoConsent").disabled = busy;
-    $("confirmPaymentBtn").disabled = busy;
-    $("checkPaymentBtn").disabled = busy;
     $("retryJobBtn").disabled = busy;
     $("checkJobBtn").disabled = busy;
+    for (const id of ["satisfiedYes", "satisfiedNo", "skipPriceBtn", "regeneratePhotoBtn", "regenerateRoleBtn"]) $(id).disabled = busy;
+    for (const button of document.querySelectorAll(".price-option")) button.disabled = busy;
   }
   async function run(action) {
     if (busy) return;
@@ -71,7 +138,12 @@ export function initCustom(getEntry) {
       throw new Error(timedOut ? "连接等待超时，请检查网络后重试。" : "网络连接中断，请检查网络后重试。");
     }
     const data = await response.json().catch(() => null);
-    if (!response.ok || !data) throw new Error(data?.message || "服务暂时没有返回有效结果，请稍后重试");
+    if (!response.ok || !data) {
+      const failure = new Error(data?.message || "服务暂时没有返回有效结果，请稍后重试");
+      failure.code = data?.code;
+      failure.status = response.status;
+      throw failure;
+    }
     return data;
   }
   function uploadPhoto(form) {
@@ -98,12 +170,17 @@ export function initCustom(getEntry) {
     });
   }
   function stage(name) {
-    show("roleStep", name === "role"); show("photoStep", name === "photo"); show("paymentStep", name === "payment"); show("generationStep", name === "generate");
-    for (const [key, id] of [["role", "stepRole"], ["photo", "stepPhoto"], ["payment", "stepPayment"], ["generate", "stepGenerate"]]) {
+    show("roleStep", name === "role"); show("photoStep", name === "photo"); show("generationStep", name === "generate");
+    show("surveyStep", false);
+    for (const [key, id] of [["role", "stepRole"], ["photo", "stepPhoto"], ["generate", "stepGenerate"]]) {
       if (key === name) $(id).setAttribute("aria-current", "step"); else $(id).removeAttribute("aria-current");
     }
-    $("customTitle").textContent = { role: "想让它扮演谁？", photo: "选一张它的照片", payment: "确认这次定制", generate: "正在生成万圣节头像" }[name];
-    $("customIntro").textContent = { role: "用测出的角色，或挑选一个喜欢的造型。", photo: "正脸清楚、毛色完整，尽量只有一只毛孩子。", payment: "付款核对成功后，自动开始生成。", generate: "头像会在后台继续生成，不用保持页面打开或重复付款。" }[name];
+    $("customTitle").textContent = { role: "想让它扮演谁？", photo: "选一张它的照片", generate: "正在生成万圣节头像" }[name];
+    $("customIntro").textContent = {
+      role: "用测出的角色，或挑选一个喜欢的造型。",
+      photo: "正脸清楚、毛色完整，尽量只有一只毛孩子。",
+      generate: "头像会在后台继续生成，不用保持页面打开。",
+    }[name];
     dialog.scrollTop = 0;
   }
   function renderRole() {
@@ -133,6 +210,7 @@ export function initCustom(getEntry) {
     selectedRole = role;
     $("selectedRoleName").textContent = role.name;
     stage("photo");
+    buttons();
   }
   async function imageBlob(path) {
     const response = await fetch(path, { headers: { "X-PT-Token": entry.token }, cache: "no-store", signal: AbortSignal.timeout(30_000) });
@@ -142,93 +220,206 @@ export function initCustom(getEntry) {
     }
     return response.blob();
   }
+  function resetOutput() {
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
+    outputUrl = null; imageLoading = false;
+    $("customImage").removeAttribute("src");
+    show("customOutput", false); show("saveCustomBtn", false);
+  }
+  function resetPhotoSelection() {
+    photo = null; normalized = null;
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    $("photoPreview").removeAttribute("src"); show("photoPreview", false);
+    $("pickPhotoBtn").textContent = "选择宠物照片";
+    $("photoConsent").checked = false;
+    $("petPhoto").value = "";
+    $("photoHelp").textContent = "照片短边至少 512px。上传前会压缩照片并移除元信息。";
+    show("uploadPhotoBtn"); show("startFreeBtn", false);
+  }
+  async function loadOutput() {
+    if (outputUrl) {
+      $("customImage").src = outputUrl;
+      show("customOutput"); show("saveCustomBtn");
+      return;
+    }
+    if (imageLoading) return;
+    imageLoading = true;
+    try {
+      outputUrl = URL.createObjectURL(await imageBlob(order.imageUrl));
+      $("customImage").src = outputUrl;
+      show("customOutput"); show("saveCustomBtn");
+    } catch (err) {
+      error(err.message || "头像图片暂时无法读取，请稍后刷新重试");
+    } finally { imageLoading = false; }
+  }
+  function renderRegenerateChoices() {
+    const allowed = quotaAllowsRegenerate();
+    show("regenerateChoices", allowed);
+    $("unsatisfiedText").textContent = allowed ? TEXT.unsatisfiedWithQuota : TEXT.unsatisfiedNoQuota;
+  }
+  function renderSurvey() {
+    if (!order?.free || order.status !== "ready") { show("surveyStep", false); return; }
+    show("surveyStep");
+    show("priceQuestion", false);
+    show("unsatisfiedGuide", false);
+    show("satisfactionChoices", false);
+    $("surveyStatus").textContent = "";
+    if (surveyFocusAttempt !== order.attemptId) {
+      surveyFocusAttempt = order.attemptId;
+      $("surveyHeading").focus({ preventScroll: true });
+    }
+    if (!feedback) {
+      $("surveyHeading").textContent = "这张头像还满意吗？";
+      show("satisfactionChoices");
+      return;
+    }
+    if (feedback.satisfied) {
+      $("surveyHeading").textContent = "谢谢你的反馈";
+      if (feedback.skipped) {
+        $("surveyStatus").textContent = "已记录：这次先跳过价格问题。";
+      } else if (feedback.priceAnswered) {
+        $("surveyStatus").textContent = `已记录：愿意支付 ${feedback.priceFen / 100} 元。`;
+      } else {
+        show("priceQuestion");
+      }
+    } else {
+      $("surveyHeading").textContent = "谢谢你的反馈";
+      show("unsatisfiedGuide");
+      renderRegenerateChoices();
+    }
+  }
   function schedulePoll() {
     clearTimeout(pollTimer);
-    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show(order.status === "unpaid" ? "checkPaymentBtn" : "checkJobBtn"); return; }
+    if (!["unlocked", "queued", "generating"].includes(order?.status)) return;
+    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show("checkJobBtn"); return; }
     pollTimer = setTimeout(() => run(checkOrder), 5000);
   }
   async function renderOrder() {
     clearTimeout(pollTimer);
     progress("");
-    show("customOutput", false); show("saveCustomBtn", false);
-    await renderSupport();
-    // 批准退款后才收回成品；审核期间已生成的头像继续展示。
-    if (imageWithheld(order)) {
+    resetOutput();
+    show("retryJobBtn", false); show("checkJobBtn", false); show("tipAuthorLink", false);
+    if (!order) return;
+    if (!order.free) {
       stage("generate");
-      $("customTitle").textContent = order.refundStatus === "refunded" ? "退款已完成" : "退款申请处理中";
-      $("generationMessage").textContent = "新的生成与重试已暂停。审核结果会在下方更新，也会尝试发送至付款账号。";
-      show("retryJobBtn", false); show("checkJobBtn"); schedulePoll(); return;
-    }
-    if (refundLocked(order) && order.status !== "ready") {
-      stage("generate");
-      $("customTitle").textContent = "退款申请处理中";
-      $("generationMessage").textContent = "新的生成与重试已暂停。审核结果会在下方更新，也会尝试发送至付款账号。";
-      show("retryJobBtn", false); show("checkJobBtn"); schedulePoll(); return;
-    }
-    if (order.status === "unpaid") {
-      stage("payment");
-      $("paymentRoleName").textContent = roles.find((role) => role.id === order.roleId)?.name || entry.result.roleName;
-      $("paymentAmount").textContent = `${yuan(order.amountFen)} 元 · 1 个万圣节头像`;
-      $("paymentReference").textContent = order.payId;
-      const available = config?.available && order.amountFen === config.amountFen && new Date(order.expiresAt).getTime() > Date.now();
-      show("payLink", Boolean(available && order.payUrl && !config?.testMode));
-      if (available && order.payUrl && !config?.testMode) $("payLink").href = order.payUrl;
-      else progress(config?.testMode ? "测试环境不收款。等待测试管理员模拟确认后，自动开始生成。" : "付款链接暂不可用。如已付款，请填写订单号核对，请勿重复付款。");
-      if (config?.testMode) {
-        $("paymentAmount").textContent = "测试订单 · 无需真实付款";
-        $("customIntro").textContent = "这是独立测试环境，付款确认由测试管理员模拟。";
-        $("paymentInstructions").textContent = "此处不会跳转爱发电，不发生真实收款。测试通知只保存在测试记录中。";
-        $("platformOrderNo").closest("details").classList.add("hidden");
+      if (order.status === "ready") {
+        $("customTitle").textContent = "万圣节头像来啦";
+        $("customIntro").textContent = "这份头像来自之前的付费订单，可以继续保存。";
+        $("generationMessage").textContent = "头像是之前付费生成的，可以保存；免费问卷仅针对本次免费活动。";
+        await loadOutput();
+        if (config?.tipUrl) show("tipAuthorLink");
+      } else if (order.status === "unpaid") {
+        $("customTitle").textContent = "这份测评已有付款订单";
+        $("generationMessage").textContent = TEXT.legacy;
+      } else {
+        $("generationMessage").textContent = TEXT.legacy;
       }
+      return;
+    }
+    if (["unlocked", "queued", "generating"].includes(order.status)) {
+      stage("generate");
+      $("customTitle").textContent = "正在生成万圣节头像";
+      $("generationMessage").textContent = order.status === "unlocked"
+        ? "免费生成已提交，正在排队制作它的万圣节头像。"
+        : order.status === "queued" ? "头像已排队，正在等待生成，通常需要几十秒至几分钟。" : "正在制作它的万圣节头像，通常需要几十秒至几分钟。离开页面也会继续生成。";
+      show("checkJobBtn");
       schedulePoll();
       return;
     }
-    if (order.status === "unlocked") { await startGeneration(); return; }
-    stage("generate");
-    show("retryJobBtn", order.status === "failed" && order.retryable);
-    show("checkJobBtn", ["queued", "generating", "uncertain", "ready"].includes(order.status));
     if (order.status === "ready") {
+      stage("generate");
       $("customTitle").textContent = "万圣节头像来啦";
-      sessionStorage.removeItem("peti:payment");
+      $("customIntro").textContent = "头像已生成，保存它的万圣节新造型。";
       $("generationMessage").textContent = "头像已生成，保存它的万圣节新造型。";
-      if (outputUrl) { show("customOutput"); show("saveCustomBtn"); show("checkJobBtn", false); }
-      if (!outputUrl && !imageLoading) {
-        imageLoading = true;
-        try {
-          outputUrl = URL.createObjectURL(await imageBlob(order.imageUrl));
-          $("customImage").src = outputUrl;
-          show("customOutput"); show("saveCustomBtn"); show("checkJobBtn", false);
-        } finally { imageLoading = false; }
-      }
-    } else if (["queued", "generating"].includes(order.status)) {
-      $("generationMessage").textContent = order.status === "queued" ? "付款已确认，头像已排队。生成完成后会向付款账号发送领取入口。" : "正在制作它的万圣节头像，通常需要几十秒至几分钟。离开页面也会继续生成。";
-      schedulePoll();
-    } else if (order.status === "uncertain") {
-      $("generationMessage").textContent = "生成结果暂未确认，系统已记录异常。请查询进度或在下方申请退款，无需重新付款。";
-      schedulePoll();
-    } else {
-      $("generationMessage").textContent = order.retryable ? "这次生成未完成，付款权益已保留，可以重试一次，也可申请退款。" : "生成未完成，可以在下方申请退款。请勿重复付款。";
-      $("retryJobBtn").textContent = "重试生成";
+      await loadOutput();
+      // 问卷不阻塞图片和保存；已有反馈时直接渲染完成态。
+      renderSurvey();
+      if (config?.tipUrl) show("tipAuthorLink");
+      return;
     }
+    if (order.status === "failed") {
+      stage("generate");
+      $("customTitle").textContent = "这次生成没有完成";
+      $("generationMessage").textContent = TEXT.failed;
+      show("retryJobBtn", quotaAllowsRegenerate());
+      return;
+    }
+    if (order.status === "uncertain") {
+      stage("generate");
+      $("customTitle").textContent = "头像还在确认中";
+      $("generationMessage").textContent = TEXT.uncertain;
+      show("checkJobBtn");
+      return;
+    }
+    stage("generate");
+    $("generationMessage").textContent = "正在读取生成状态…";
   }
   async function checkOrder() {
-    // 查单只返回状态字段；保留创建订单时取得的付款链接，避免轮询把未付款入口清掉。
-    order = { ...order, ...(await api(`/api/checkout/${order.payId}`)) };
+    const data = await api(`/api/free-orders?testId=${encodeURIComponent(entry.testId)}&browserId=${encodeURIComponent(ensureBrowserId())}`);
+    if (data.order) order = data.order;
+    if (data.free) free = data.free;
+    if (data.feedback !== undefined) feedback = data.feedback;
+    renderQuota(); renderQuotaNote();
     await renderOrder();
   }
-  const renderSupport = initAvatarSupport(api, () => order, checkOrder, error);
-  async function startGeneration() {
-    progress("");
-    stage("generate");
-    $("generationMessage").textContent = "正在制作它的万圣节头像，通常需要几十秒至几分钟。离开页面也会继续生成。";
-    show("retryJobBtn", false);
-    try { order = await api("/api/jobs", { payId: order.payId }); }
-    catch (err) {
-      show("checkJobBtn");
-      $("generationMessage").textContent = "连接暂时中断，请先查询生成结果，请勿重复付款。";
-      throw err;
+  function handleOrderError(err) {
+    const code = err?.code;
+    if (code === "FREE_QUOTA_EXHAUSTED") {
+      free = { ...(free || {}), exhausted: true, remaining: 0, reason: "QUOTA_EXHAUSTED" };
+      error(TEXT.helpClosed);
+    } else if (code === "FREE_BROWSER_LIMIT") {
+      free = { ...(free || {}), browserExhausted: true, browserRemaining: 0, reason: "BROWSER_LIMIT" };
+      error(TEXT.browserLimit);
+    } else if (code === "SERVICE_NOT_CONFIGURED") {
+      error(TEXT.serviceNotConfigured);
+    } else if (code === "DELIVERY_UNAVAILABLE") {
+      error(TEXT.maintenance);
+    } else if (code === "LEGACY_ORDER_EXISTS" || code === "LEGACY_ORDER_PENDING") {
+      order = { ...(order || {}), free: false, status: "unpaid" };
+      void renderOrder();
+    } else {
+      error(err?.message || "连接失败，请重试");
     }
-    await renderOrder();
+    renderQuota(); renderQuotaNote(); buttons();
+  }
+  async function startFreeOrder(regenerate = false) {
+    if (busy) return;
+    busy = true; error(""); progress("正在提交免费生成…"); buttons();
+    try {
+      const data = await api("/api/free-orders", {
+        testId: entry.testId,
+        photoId: photo?.photoId || order?.photoId,
+        roleId: selectedRole?.id || order?.roleId || entry.result.roleId,
+        browserId: ensureBrowserId(),
+        // 已存在订单必须显式重试，避免把 ready/failed 当成首次创建重复扣额度。
+        regenerate: Boolean(regenerate || order),
+      });
+      if (data.order) order = data.order;
+      if (data.free) free = data.free;
+      feedback = data.feedback ?? null;
+      stage("generate");
+      renderQuota(); renderQuotaNote();
+      await renderOrder();
+    } catch (err) {
+      handleOrderError(err);
+    } finally {
+      busy = false; buttons();
+    }
+  }
+  async function submitFeedback(payload) {
+    if (busy || !order?.attemptId) return;
+    busy = true; buttons();
+    try {
+      const data = await api("/api/feedback", {
+        testId: entry.testId, orderId: order.orderId, attemptId: order.attemptId, ...payload,
+      });
+      feedback = data.feedback;
+      renderSurvey();
+    } catch {
+      $("surveyStatus").textContent = TEXT.feedbackFailed;
+    } finally {
+      busy = false; buttons();
+    }
   }
 
   function openCustom() {
@@ -237,13 +428,23 @@ export function initCustom(getEntry) {
     entry = getEntry();
     if (!entry) return;
     const sequence = ++opening;
-    roles = []; config = null; restoring = true;
-    show("refundSection", false);
+    roles = []; config = null; free = null; feedback = null; order = null; regenerating = false; surveyFocusAttempt = null;
+    restoring = true;
+    clearTimeout(pollTimer);
+    resetOutput();
     if (!dialog.open) dialog.showModal();
     document.documentElement.classList.add("custom-open");
     pollStart = Date.now();
-    stage("role"); show("roleChoice"); show("roleBrowser", false); error(""); buttons();
-    // 先开放角色选择，再后台核对服务和历史订单，避免慢网锁住所有按钮。
+    stage("role"); show("roleChoice"); show("roleBrowser", false);
+    show("surveyStep", false); show("tipAuthorLink", false);
+    $("freeQuotaBadge").setAttribute("aria-expanded", "false");
+    show("freeQuotaHelp", false);
+    $("freeQuotaNote").textContent = "";
+    $("freeQuotaBadge").dataset.state = "open";
+    $("freeQuotaBadge").querySelector(".quota-badge-label").textContent = "限时免费 1000 份";
+    error(""); buttons();
+    ensureBrowserId();
+    // 先开放角色选择，再后台核对额度和历史订单，避免慢网锁住所有按钮。
     (async () => {
       roles = await loadRoles();
       if (sequence !== opening) return;
@@ -252,18 +453,24 @@ export function initCustom(getEntry) {
       $("resultRoleChoice").textContent = resultRole.name;
       roleIndex = roles.findIndex((role) => role.id === resultRole.id);
       buttons();
-      $("generatePaidBtn").textContent = "下一步：确认付款";
-      const [service, previous] = await Promise.all([api("/api/config"), api(`/api/checkout?testId=${encodeURIComponent(entry.testId)}`)]);
+      const id = ensureBrowserId();
+      const [service, previous] = await Promise.all([
+        api(`/api/config?browserId=${encodeURIComponent(id)}`),
+        api(`/api/free-orders?testId=${encodeURIComponent(entry.testId)}&browserId=${encodeURIComponent(id)}`),
+      ]);
       if (sequence !== opening) return;
       config = service;
-      if (config.testMode) {
-        dialog.querySelector(".custom-kicker").textContent = "独立测试环境 · 不收款";
-        $("generatePaidBtn").textContent = "下一步：创建测试订单";
-      }
-      show("customAvailability", !config.available);
+      free = previous.free || service.free || null;
+      feedback = previous.feedback || null;
+      const tip = $("tipAuthorLink");
+      if (config.tipUrl) tip.href = config.tipUrl;
+      else tip.removeAttribute("href");
+      // 打赏只在有成品时出现，避免还没生成就先看到收款入口。
+      show("tipAuthorLink", false);
+      renderQuota(); renderQuotaNote();
       if (previous.order) {
         order = previous.order;
-        if (order.status === "unpaid" && config.available) order = { ...order, ...(await api("/api/checkout", { testId: entry.testId, photoId: order.photoId, roleId: order.roleId || entry.result.roleId })) };
+        if (previous.free) free = previous.free;
         await renderOrder();
       }
     })().catch((err) => { if (sequence === opening) error(err.message || "订单查询失败，请关闭后重试"); })
@@ -283,14 +490,20 @@ export function initCustom(getEntry) {
     touchStart = null;
   }, { passive: true });
   $("chooseRole").addEventListener("click", () => selectRole(roles[roleIndex]));
-  $("changeRole").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); stage("role"); });
+  $("changeRole").addEventListener("click", () => { show("roleBrowser", false); show("roleChoice"); stage("role"); buttons(); });
   $("customBtn").addEventListener("click", openCustom);
-  window.addEventListener("pageshow", () => {
-    if (sessionStorage.getItem("peti:payment") === getEntry()?.testId) openCustom();
-  });
   window.addEventListener("pagehide", () => clearTimeout(pollTimer));
   $("closeCustomBtn").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => { document.documentElement.classList.remove("custom-open"); clearTimeout(pollTimer); $("customBtn").focus({ preventScroll: true }); });
+  $("freeQuotaBadge").addEventListener("click", () => {
+    const expanded = $("freeQuotaBadge").getAttribute("aria-expanded") === "true";
+    $("freeQuotaBadge").setAttribute("aria-expanded", String(!expanded));
+    show("freeQuotaHelp", !expanded);
+  });
+  dialog.addEventListener("close", () => {
+    document.documentElement.classList.remove("custom-open");
+    clearTimeout(pollTimer);
+    $("customBtn").focus({ preventScroll: true });
+  });
   $("pickPhotoBtn").addEventListener("click", () => { pickingPhoto = true; $("petPhoto").click(); });
   $("petPhoto").addEventListener("cancel", () => { pickingPhoto = false; });
   $("photoConsent").addEventListener("change", buttons);
@@ -298,7 +511,8 @@ export function initCustom(getEntry) {
     pickingPhoto = false;
     const file = $("petPhoto").files?.[0];
     if (!file) return;
-    normalized = null; photo = null; show("generatePaidBtn", false);
+    normalized = null; photo = null;
+    show("startFreeBtn", false);
     show("photoPreview", false); show("uploadPhotoBtn");
     $("uploadPhotoBtn").textContent = "上传这张照片";
     $("photoHelp").textContent = "照片短边至少 512px。上传前会压缩照片并移除元信息。";
@@ -337,34 +551,44 @@ export function initCustom(getEntry) {
     try { photo = await uploadPhoto(form); }
     catch (err) { $("uploadPhotoBtn").textContent = "重新上传这张照片"; throw err; }
     progress("");
-    show("uploadPhotoBtn", false); show("generatePaidBtn");
-    $("photoHelp").textContent = config?.testMode ? "照片上传完成。下一步创建测试订单，无需真实付款。" : config?.available ? "照片上传完成。确认后前往付款，核对成功即开始生成。" : "照片上传完成。付费定制暂未开放，当前不会扣款。";
+    show("uploadPhotoBtn", false); show("startFreeBtn");
+    $("photoHelp").textContent = config?.available
+      ? "照片上传完成。点击「免费生成头像」开始生成。"
+      : "照片上传完成。免费生图通道暂不可用，已选择的照片和角色会保留。";
+    renderQuotaNote(); buttons();
   }));
-  $("generatePaidBtn").addEventListener("click", () => run(async () => {
-    progress("正在准备支付…");
-    order = await api("/api/checkout", { testId: entry.testId, photoId: photo.photoId, roleId: selectedRole.id });
-    await renderOrder();
-  }));
-  $("copyPaymentBtn").addEventListener("click", () => run(async () => {
-    try { await navigator.clipboard.writeText(order.payId); $("copyPaymentBtn").textContent = "已复制"; }
-    catch { throw new Error("复制失败，请长按上方支付标识复制"); }
-  }));
-  $("confirmPaymentBtn").addEventListener("click", () => run(async () => {
-    progress("正在核对付款，请勿重复付款…");
-    order = await api(`/api/checkout/${order.payId}/confirm`, { platformOrderNo: $("platformOrderNo").value.trim() });
-    if (order.status === "unlocked") await startGeneration(); else await renderOrder();
-  }));
-  $("retryJobBtn").addEventListener("click", () => run(startGeneration));
+  $("startFreeBtn").addEventListener("click", () => startFreeOrder(regenerating));
+  $("retryJobBtn").addEventListener("click", () => { regenerating = true; startFreeOrder(true); });
   $("checkJobBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
-  $("checkPaymentBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
-  $("payLink").addEventListener("click", () => sessionStorage.setItem("peti:payment", entry.testId));
+  $("satisfiedYes").addEventListener("click", () => submitFeedback({ satisfied: true }));
+  $("satisfiedNo").addEventListener("click", () => submitFeedback({ satisfied: false }));
+  $("priceChoices").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-price-fen]");
+    if (!button) return;
+    submitFeedback({ satisfied: true, priceFen: Number(button.dataset.priceFen) });
+  });
+  $("skipPriceBtn").addEventListener("click", () => submitFeedback({ satisfied: true, skipped: true, priceFen: null }));
+  $("regenerateRoleBtn").addEventListener("click", () => {
+    regenerating = true;
+    selectedRole = null;
+    show("roleBrowser", false); show("roleChoice");
+    stage("role");
+    buttons();
+  });
+  $("regeneratePhotoBtn").addEventListener("click", () => {
+    regenerating = true;
+    resetPhotoSelection();
+    stage("photo");
+    buttons();
+  });
   $("saveCustomBtn").addEventListener("click", () => {
+    if (!outputUrl) return;
     const link = document.createElement("a");
     link.href = outputUrl; link.download = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.png`;
     link.click(); $("saveCustomBtn").textContent = "已发起保存，再次保存";
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clearTimeout(pollTimer);
-    else if (!pickingPhoto && dialog.open && ["unpaid", "unlocked", "queued", "generating", "uncertain"].includes(order?.status) && !busy) run(checkOrder);
+    else if (!pickingPhoto && dialog.open && ["unlocked", "queued", "generating", "uncertain"].includes(order?.status) && !busy) run(checkOrder);
   });
 }

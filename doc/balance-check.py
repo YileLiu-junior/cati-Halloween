@@ -43,7 +43,8 @@ def score(picks):
     axis = {a: 5.0 for a in AXES}
     for (axis_delta, char_pts) in picks:
         a, d = axis_delta
-        axis[a] += d
+        if a is not None:
+            axis[a] += d
         for cid, pts in char_pts:
             chars[cid] += pts
     vec = [max(0.0, min(10.0, axis[a])) for a in AXES]

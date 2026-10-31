@@ -1,5 +1,5 @@
 {
-  "quizVersion": "cat-2026v2",
+  "quizVersion": "cat-2026v3",
   "petType": "cat",
   "defaultPetName": "咪咪",
   "searchPhrase": "喵灵万圣节",
@@ -139,12 +139,13 @@
     {
       "id": "q1",
       "scene": "下班开门",
-      "text": "钥匙刚响，结束一天疲惫刚回家打开门，你家猫的第一反应是？",
+      "text": "钥匙刚响、门一开，你家猫的反应是？",
       "options": [
         { "id": "q1a", "text": "门还没开完就从门缝里挤出来了，如果不提前拦住，撒腿就跑没影了，有一颗探险的心", "axis": "E", "delta": 3, "points": { "pirate": 2, "zombie": 1 } },
         { "id": "q1b", "text": "还没开门就能听见它大声叫着“人！我等你好久了！你终于回来了！”，进门就来求摸摸", "axis": "A", "delta": 3, "points": { "nurse": 2, "zombie": 1 } },
         { "id": "q1c", "text": "碰上心情好可能会走出来迎接一下，大部分时候都是稳稳睡着等你去找它呢", "axis": "A", "delta": -3, "points": { "vampire": 3, "pharaoh": 1 } },
-        { "id": "q1d", "text": "会站在不远不近的地方静静等你，用眼神关心你，但是很少会特别热情的来迎接你蹭蹭你", "axis": "A", "delta": -3, "points": { "witch": 2, "bat": 1 } }
+        { "id": "q1d", "text": "会站在不远不近的地方静静等你，用眼神关心你，但是很少会特别热情的来迎接你蹭蹭你", "axis": "A", "delta": -3, "points": { "witch": 2, "bat": 1 } },
+        { "id": "q1n", "text": "先看看情况，不急着动", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -155,7 +156,8 @@
         { "id": "q2a", "text": "不管猫粮还是零食，一点动静就瞬移出现，把碗舔得反光，是从不让人担心吃饭的乖宝宝", "axis": "F", "delta": 3, "points": { "pumpkin": 4 } },
         { "id": "q2b", "text": "对猫粮反应一般，但只要开零食就会立刻出现，猫条猫罐头，对食物有高要求的小美食家", "axis": "F", "delta": -3, "points": { "pharaoh": 2, "vampire": 1 } },
         { "id": "q2c", "text": "对吃的会根据饿不饿有不同反应，特别的是，对你亲手喂的食物好像容忍接受度就更高一些", "axis": "A", "delta": 3, "points": { "nurse": 2, "ghost": 1 } },
-        { "id": "q2d", "text": "吃两口就去玩，玩累了回来再吃两口，超级小鸟胃，全天候自助也不用担心会吃胖", "axis": "E", "delta": 3, "points": { "zombie": 2, "clown": 1 } }
+        { "id": "q2d", "text": "吃两口就去玩，玩累了回来再吃两口，超级小鸟胃，全天候自助也不用担心会吃胖", "axis": "E", "delta": 3, "points": { "zombie": 2, "clown": 1 } },
+        { "id": "q2n", "text": "饿了就吃，不挑", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -166,7 +168,8 @@
         { "id": "q3a", "text": "晚上总爱逮虾户，开心的时候还喜欢嚎几嗓子，半夜总会把你吵醒那么一两回", "axis": "E", "delta": 3, "points": { "werewolf": 3, "zombie": 1, "chainsaw": 1 } },
         { "id": "q3b", "text": "你开出极品猫猫！晚上总是喜欢在你身边甚至怀里睡觉，不管你什么时候睁眼它总在身边", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 1 } },
         { "id": "q3c", "text": "夜晚的小守护神，你几点睡它就在身旁陪到几点，而且只要你起夜行动，它总会第一时间出现", "axis": "C", "delta": 3, "points": { "witch": 4, "franken": 1 } },
-        { "id": "q3d", "text": "有它固定的小窝，看你睡了它也去睡了，或是自己玩去了？你根本不知道，因为看不到它在哪啊", "axis": "A", "delta": -3, "points": { "bat": 3, "mummy": 1 } }
+        { "id": "q3d", "text": "有它固定的小窝，看你睡了它也去睡了，或是自己玩去了？你根本不知道，因为看不到它在哪啊", "axis": "A", "delta": -3, "points": { "bat": 3, "mummy": 1 } },
+        { "id": "q3n", "text": "没什么特别，照常睡", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -177,7 +180,8 @@
         { "id": "q4a", "text": "超级大社牛！主动出击，探索一切新事物，陌生人也敢上前大胆社交！", "axis": "B", "delta": 3, "points": { "pirate": 2, "franken": 1 } },
         { "id": "q4b", "text": "陌生人一进门三秒它就消失，直到三小时后才从沙发底慢慢探出来", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
         { "id": "q4c", "text": "怕人，但不是活物的东西，它都很好奇，总是闻一闻疯狂检查，新玩具也总是很捧场", "axis": "C", "delta": 3, "points": { "franken": 2, "chainsaw": 1 } },
-        { "id": "q4d", "text": "对于新出现的东西总是淡淡的，你精心给它挑选的小礼物它也往往闻一闻从旁路过", "axis": "C", "delta": -3, "points": { "vampire": 2, "gargoyle": 1 } }
+        { "id": "q4d", "text": "对于新出现的东西总是淡淡的，你精心给它挑选的小礼物它也往往闻一闻从旁路过", "axis": "C", "delta": -3, "points": { "vampire": 2, "gargoyle": 1 } },
+        { "id": "q4n", "text": "先观察，不急着靠近", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -188,7 +192,8 @@
         { "id": "q5a", "text": "它就是你亲自生下的宝宝！它的一颦一笑，一静一动，都和你一模一样，一看就是亲生的！", "axis": "C", "delta": 3, "points": { "franken": 2, "clown": 1 } },
         { "id": "q5b", "text": "虽然不会整天黏在你身上，但你一掉眼泪，它就默默过来陪你，你知道这是它对你关心的方式", "axis": "A", "delta": 3, "points": { "nurse": 2, "bride": 2 } },
         { "id": "q5c", "text": "完全觉得它像人啊，它就是个让人捉摸不透的神一般的存在！总是神秘的出现，神秘的消失", "axis": "D", "delta": 3, "points": { "witch": 2, "clown": 1 } },
-        { "id": "q5d", "text": "不觉得它像人，是野性十足的小猫咪，贪玩，贪吃，贪睡，就是不肯亲人", "axis": "A", "delta": -3, "points": { "werewolf": 2, "gargoyle": 1 } }
+        { "id": "q5d", "text": "不觉得它像人，是野性十足的小猫咪，贪玩，贪吃，贪睡，就是不肯亲人", "axis": "A", "delta": -3, "points": { "werewolf": 2, "gargoyle": 1 } },
+        { "id": "q5n", "text": "偶尔有，说不上来", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -199,7 +204,8 @@
         { "id": "q6a", "text": "这猫怎么一直在响啊！非常喜欢摸摸，手刚抬起来猫头就蹭上来了，有的一摸就呼噜呼噜~", "axis": "A", "delta": 3, "points": { "nurse": 2, "gargoyle": 1 } },
         { "id": "q6b", "text": "主子心情好，就会来你身边蹭一蹭让摸一摸，但大部分时候只能靠你去强扭这只“小瓜”", "axis": "D", "delta": 3, "points": { "pharaoh": 3, "vampire": 1 } },
         { "id": "q6c", "text": "摸错一下就扭头「哈——」，一抱就挣扎，尾巴拍地板警告，雷区遍布全身", "axis": "B", "delta": -3, "points": { "mummy": 3, "ghost": 1 } },
-        { "id": "q6d", "text": "性格超级好，任人揉捏，摸不摸随便，抓起手臂感觉骨头都是软的，偶尔才会甩一下尾巴尖表达不满", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pumpkin": 1 } }
+        { "id": "q6d", "text": "性格超级好，任人揉捏，摸不摸随便，抓起手臂感觉骨头都是软的，偶尔才会甩一下尾巴尖表达不满", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pumpkin": 1 } },
+        { "id": "q6n", "text": "看它心情，都可能", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -210,7 +216,8 @@
         { "id": "q7a", "text": "瞬间进入战斗模式：飞扑、抱咬、锁喉，既是体操冠军又是运动达人，能玩特别久", "axis": "E", "delta": 3, "points": { "chainsaw": 3, "zombie": 1, "werewolf": 1 } },
         { "id": "q7b", "text": "先看有没有零食，没有就当场罢工，一只超级懒的大馋猪咪来的", "axis": "F", "delta": 3, "points": { "pumpkin": 2, "gargoyle": 1 } },
         { "id": "q7c", "text": "你玩你的，它睡它的，好像你俩玩耍的神经总对不上信号", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
-        { "id": "q7d", "text": "孩子打小就容易开小差，玩到一半突然定格想别的事去了，或是被其它东西吸引走开", "axis": "C", "delta": 3, "points": { "clown": 2, "franken": 1 } }
+        { "id": "q7d", "text": "孩子打小就容易开小差，玩到一半突然定格想别的事去了，或是被其它东西吸引走开", "axis": "C", "delta": 3, "points": { "clown": 2, "franken": 1 } },
+        { "id": "q7n", "text": "玩两下就走开", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -221,7 +228,8 @@
         { "id": "q8a", "text": "总是喜欢出现在你周围，你玩电脑它放技能，你认真工作它就负责干扰", "axis": "A", "delta": 3, "points": { "franken": 2, "nurse": 1 } },
         { "id": "q8b", "text": "你刚起身，椅子立刻易主；非常有领地意识，对于入侵它领地的人或咪它都会表露出不爽", "axis": "B", "delta": 3, "points": { "pharaoh": 2, "werewolf": 1 } },
         { "id": "q8c", "text": "猫真的有领地意识吗？从不在固定的位置出现，不会特别对那个地方情有独钟，或者说，它可能更喜欢去外面", "axis": "C", "delta": 3, "points": { "pirate": 2, "witch": 1 } },
-        { "id": "q8d", "text": "不靠近也不远离，总在离你不远的位置，你换房间它也挪窝，隔着一步远跟你巡视全屋", "axis": "A", "delta": -3, "points": { "bat": 2, "vampire": 1 } }
+        { "id": "q8d", "text": "不靠近也不远离，总在离你不远的位置，你换房间它也挪窝，隔着一步远跟你巡视全屋", "axis": "A", "delta": -3, "points": { "bat": 2, "vampire": 1 } },
+        { "id": "q8n", "text": "互不干涉，各过各的", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -232,7 +240,8 @@
         { "id": "q9a", "text": "航空箱前上演消失术，塞进去后一路嚎出一整部连续剧，感觉出去一趟嗓子都要哭哑了", "axis": "D", "delta": 3, "points": { "clown": 3, "bride": 1 } },
         { "id": "q9b", "text": "到医院全程淡定趴着，医生都忍不住夸一句「这也太乖了」，是见过大风大浪的淡咪", "axis": "B", "delta": 3, "points": { "gargoyle": 2, "pirate": 1 } },
         { "id": "q9c", "text": "全程发抖装隐形，恨不得把自己嵌进航空箱最底下，眼睛一直在找哪里能躲藏", "axis": "B", "delta": -3, "points": { "ghost": 2, "mummy": 1 } },
-        { "id": "q9d", "text": "一到新地方就开始巡逻，跟到了自己家一样一点不怕生，人也好猫也好，见了面都是朋友", "axis": "B", "delta": 3, "points": { "pirate": 3, "franken": 1 } }
+        { "id": "q9d", "text": "一到新地方就开始巡逻，跟到了自己家一样一点不怕生，人也好猫也好，见了面都是朋友", "axis": "B", "delta": 3, "points": { "pirate": 3, "franken": 1 } },
+        { "id": "q9n", "text": "有点紧张，但能配合", "axis": null, "delta": 0, "points": {} }
       ]
     },
     {
@@ -243,7 +252,8 @@
         { "id": "q10a", "text": "镜头一对就坐好，还知道歪头找角度，天生平面模特，手机相册翻出来全是美照", "axis": "D", "delta": 3, "points": { "bride": 3, "clown": 1 } },
         { "id": "q10b", "text": "超级动感模特！拍一百张，九十九张是糊的，剩下一张是它的屁股，镜头感为负数，但动感满分", "axis": "E", "delta": 3, "points": { "zombie": 2, "chainsaw": 1 } },
         { "id": "q10c", "text": "总是在睡觉，家里的睡神，相册打开80%全是闭着眼睛呼呼大睡的照片，各种睡姿集锦", "axis": "E", "delta": -3, "points": { "gargoyle": 2, "bat": 1 } },
-        { "id": "q10d", "text": "对镜头特别好奇，镜头打开就会凑过来，但也因此容易被拍到一些尴尬的瞬间", "axis": "C", "delta": 3, "points": { "franken": 2, "clown": 1 } }
+        { "id": "q10d", "text": "对镜头特别好奇，镜头打开就会凑过来，但也因此容易被拍到一些尴尬的瞬间", "axis": "C", "delta": 3, "points": { "franken": 2, "clown": 1 } },
+        { "id": "q10n", "text": "看一眼，继续躺着", "axis": null, "delta": 0, "points": {} }
       ]
     }
   ]

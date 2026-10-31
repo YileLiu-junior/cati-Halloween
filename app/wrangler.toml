@@ -6,6 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # 2026-10-30：用户明确要求开放真实支付测试；本次未升级套餐，完整出图仍待实付验收。
 CUSTOM_GENERATION_ENABLED = "true"
+# 限时免费生图：付款链路保留但休眠，由免费入口统一占用额度。
+FREE_GENERATION_ENABLED = "true"
+PAYMENT_ENABLED = "false"
 PETI_PUBLIC_ORIGIN = "https://peti-halloween.pages.dev"
 AFDIAN_PLAN_ID = "2315e4b0d2e911f186f652540025c377"
 AFDIAN_SKU_ID = "231df344d2e911f1b46452540025c377"

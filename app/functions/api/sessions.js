@@ -5,10 +5,13 @@ import {
 } from "../lib/api.js";
 
 const TTL_30D = 60 * 60 * 24 * 30;
+// 过渡期兼容旧版题库：新版仍以数据文件里的 quizVersion 为准
+const LEGACY_QUIZ_VERSIONS = { cat: "cat-2026v2", dog: "dog-2026v2" };
 
 export async function onRequestPost({ request, env }) {
   try {
-    if (!rateLimit(`sessions:${clientIp(request)}`)) {
+    // 答题页一次会话只创建一次；120 次/分足以拦住脚本，也不会让同日多轮回归互相打满。
+    if (!rateLimit(`sessions:${clientIp(request)}`, 120)) {
       return apiError("RATE_LIMITED", "请求太频繁，请稍后再试", 429, true);
     }
     const body = await request.json().catch(() => null);
@@ -17,7 +20,7 @@ export async function onRequestPost({ request, env }) {
       return apiError("PARAM_MISSING", "petType 必须为 cat 或 dog", 400);
     }
     const quiz = QUIZZES[petType];
-    if (!quizVersion || quizVersion !== quiz.quizVersion) {
+    if (!quizVersion || (quizVersion !== quiz.quizVersion && quizVersion !== LEGACY_QUIZ_VERSIONS[petType])) {
       // quizVersion 非法或与 petType 不匹配一律 PARAM_MISSING（验收 §10.10）
       return apiError("PARAM_MISSING", "quizVersion 非法或与宠物类型不匹配", 400);
     }

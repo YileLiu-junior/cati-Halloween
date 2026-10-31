@@ -1,6 +1,20 @@
 # 定制盲盒流程与接入说明
 
-## 最新：头像交付与退款修复（2026-10-30，待生产发布）
+## 最新：限时免费生图（2026-10-31，本地完成，待部署）
+
+全量变更台账（接口、迁移、开关、文件清单、部署与后续 agent 注意事项）见 [变更台账](change-ledger-20261031-free-generation.md)。
+
+本轮覆盖付费下单流程：活动期间用户上传照片后直接免费生成一次，全站限量 1000 份、每浏览器最多 2 次，生成失败或超时退还次数。付款、退款与后台交付代码保留但休眠，爱发电链接只作为“打赏作者”。
+
+- 免费入口：`POST /api/free-orders`（首次创建、状态查询与 `regenerate` 复用同一订单行），`GET /api/free-orders` 返回订单、问卷与额度快照，`POST /api/feedback` 保存满意度与 1/2/6 元付费意愿。
+- 数据：`migrations/0005_free_generation.sql` 新增 `free_quota`、`free_usage`、`free_requests`、`free_quota_refunds`、`free_feedback`，并给 `orders` 增加 `free_*` 列。额度用条件 UPDATE 与同批补偿占用；失败按 attempt 台账退回，同一 attempt 不重复退。
+- 开关：生产 Pages `FREE_GENERATION_ENABLED="true"`、`PAYMENT_ENABLED="false"`；delivery worker `DELIVERY_ENABLED="true"`，否则心跳为 paused，`/api/config` 会返回不可用。`/api/checkout` 在 `PAYMENT_ENABLED !== "true"` 时返回 503；`/api/jobs` 与退款接口拒绝免费单。
+- 配置：`/api/config` 新增 `free`（剩余、耗尽、本机次数）、`tipUrl`（`AFDIAN_SUPPORT_URL` 或现有 `AFDIAN_PAY_URL`，只做打赏，不加订单参数）、`paymentAvailable`。
+- 前端：定制弹窗去掉付款/退款区，标题右侧“限时免费 · 剩 N 份”角标；生成后问卷询问满意度，满意再问 1/2/6 元意愿（可跳过），不满意引导换照片或换角色（消耗第 2 次）。打赏按钮只在有成品时显示。
+- 生图参数不变：一次 Seedream 5.0 Flash，2048×2048 白底 PNG，不抠图。
+- 部署顺序：应用 D1 迁移 0005 → 同步 `ARK_API_KEY` 与参考图 → 部署 Pages → 部署 delivery worker → 确认真实免费出图与失败退回。本地 `npm run test:api` 与 Playwright 使用替身，不代表真实生图已验收。
+
+## 头像交付与退款修复（2026-10-30，付费链路已休眠）
 
 当前交互名称已改为“万圣节头像”。支付确认自动进入持久后台任务，新增爱发电专属订单私信、独立领取页及退款申请/审核页。最新架构、发布顺序、故障证据和未完成的真实退款见 [头像交付操作说明](avatar-delivery-operations.md)。下文同步等待生图、浏览器触发及自动抠图等内容保留为历史记录，不能作为新实现说明。
 

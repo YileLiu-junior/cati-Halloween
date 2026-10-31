@@ -24,6 +24,7 @@
 | `doc/review-convention.md` v1.0 | PRD 评审流程约定，评审 agent 只读不写 |
 | `doc/posthog-proxy-setup.md` v1.0 | PostHog 反代部署指南；PostHog 已注册（US 区）、key 已取 |
 | `doc/reviews/PRD-quiz-ui-ux-analysis-20261027.md` | 交互清单（15 条）＋素材对账（4 项，硬图仅头图与 16 立绘）＋14 项开放问题；Q2（petName 时序）、F1（card-free.png 是整卡非立绘）待作者裁决 |
+| `doc/change-ledger-20261031-free-generation.md` | 2026-10-31 免费生图改造台账：接口契约、迁移、开关、文件清单、验证结果、部署清单与后续 agent 注意事项 |
 
 ## 3. 美术资产进度（16 角色，猫版）
 
@@ -183,3 +184,20 @@
 只读核实原测试订单402df535-c738-4cd5-920d-d4a4330ceea5、爱发电交易20261030124458975597574832，实付1.80元，平台仍为已付，本站无成品路径。生图开始同一分钟的Pages聚合指标有唯一exceededResources请求，强烈指向资源超限；无逐请求订单关联，不能断言具体CPU/内存原因。证据保存在忽略目录.wrangler/test-order-resource-metrics.json。
 
 用户指定原测试订单用于退款。收款列表/表格与公开API未找到可验证的退款操作；官方Lain私信已打开，常见问题按钮触发“订单相关”自动咨询，官方要求商户单号与具体问题。交易详情尚未发送，资金尚未退款。已备好退款咨询材料。未执行本次生产发布、远程表升级或队列创建；此前自动审批要求用户明确批准生产发布。后台配置默认DELIVERY_ENABLED=false，正式开启前必须完成生产顺序及验收。详见doc/avatar-delivery-operations.md和doc/refund-test-order-20261030.md。
+
+## 20. 2026-10-31 限时免费 1000 份、满意度问卷与五选项中庸答案（本地完成，未部署）
+
+详细台账：`doc/change-ledger-20261031-free-generation.md`（接口契约、迁移、开关、文件清单、部署清单与后续 agent 注意事项）。本节只记结论。
+
+按用户明确要求，本轮改为作者自费免费生图，先验证体验与口碑；收款入口改成“打赏作者”，不再处理退款。
+
+1. **免费额度**：新增 D1 迁移 `0005_free_generation.sql`，全局 1000 份、每浏览器 2 次。`POST /api/free-orders` 用“请求标记 + 条件 UPDATE + 同批补偿”原子占用，`GET /api/free-orders` 只读状态与问卷；`POST /api/feedback` 保存满意度与 1/2/6 元付费意愿。额度耗尽返回 `FREE_QUOTA_EXHAUSTED`，本机用完返回 `FREE_BROWSER_LIMIT`。
+2. **失败退回**：免费单任何终态失败（failed/uncertain）按 attempt 台账退回一次额度；同 attempt 不重复退，可重试失败也会先退再重新占用，净额不变。
+3. **付费休眠**：`/api/checkout` 在 `PAYMENT_ENABLED !== "true"` 时返回 503；`/api/jobs` 与退款接口拒绝免费单，防止绕过额度。webhook、退款、admin、delivery worker 代码保留，已付款在途订单仍可完成。生产 `PAYMENT_ENABLED="false"`、`FREE_GENERATION_ENABLED="true"`，`delivery-wrangler.toml` 的 `DELIVERY_ENABLED` 改为 `"true"`。
+4. **前端**：定制弹窗删除付款与退款区，步骤改为“选择角色 / 上传照片 / 生成头像”；标题右侧新增“限时免费 · 剩 N 份”流光角标，点击展开说明；生成后显示满意度问卷、三档付费意愿与“跳过”，打赏按钮只在有成品时出现。
+5. **题库**：10 题各新增第 5 个中庸选项（`q1n`…`q10n`，`axis:null, delta:0, points:{}`），题干全部 ≤25 字（仅猫版 q1 由 28 字改为 17 字），题库版本升为 `cat-2026v3` / `dog-2026v3`。旧会话 4 选项进度在答题页自动补齐为 5 项；`/api/sessions` 过渡期接受 v2 与 v3。
+6. **缓存**：`/js/config.js` 改为 `no-cache`，避免旧版本号继续提交。
+
+验证：`python tools/validate_quiz.py` 通过（10 题 × 5 选项、猫狗同构、16 角色可达、题干 ≤25 字；中庸选项占比 19.9%，平局率 32.8%，最低角色份额 1.4%）。`npm run test:api` 58/58 通过。`npx playwright test` 61/61 通过，覆盖免费全链路、问卷分支、额度耗尽、失败重试、历史付费/待付款订单、320/390px 与 reduced-motion。截图 `app/shots/free-quota-role-390.png`、`free-quota-help-390.png`、`free-quota-survey-390.png`、`free-quota-closed-320.png`。
+
+未部署、未做真实生图、未做真实打赏跳转验收。上线前需：应用 D1 迁移 0005、部署 Pages 与 delivery worker、确认 `ARK_API_KEY` 与 16 张角色参考图在 R2、`DELIVERY_ENABLED="true"`、先用一张真实宠物照片走一次免费生成并确认失败退回。不能把本地替身测试写成真实生图验收。

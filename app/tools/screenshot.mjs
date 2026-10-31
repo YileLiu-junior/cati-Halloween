@@ -13,7 +13,7 @@ await p.screenshot({ path: "shots/1-landing.png", fullPage: true });
 await p.getByLabel("请输入宠物姓名", { exact: true }).fill("馒头");
 await p.getByRole("button", { name: "开始测试" }).click();
 await p.waitForURL(/\/quiz$/);
-await expect(p.locator("#options .option")).toHaveCount(4);
+await expect(p.locator("#options .option")).toHaveCount(5);
 await p.screenshot({ path: "shots/2-quiz.png", fullPage: true });
 
 for (let i = 0; i < 10; i++) {

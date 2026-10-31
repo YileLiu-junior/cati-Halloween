@@ -103,6 +103,14 @@ export function shuffled(arr) {
   return a;
 }
 
+// 旧会话兼容：题库新增选项后，把已存顺序补齐为新题的完整选项集
+export function completeOptionOrder(question, savedOrder) {
+  const all = question.options.map((o) => o.id);
+  const saved = Array.isArray(savedOrder) ? savedOrder.filter((id) => all.includes(id)) : [];
+  const missing = all.filter((id) => !saved.includes(id));
+  return { order: [...saved, ...missing], changed: missing.length > 0 || saved.length !== (savedOrder?.length || 0) };
+}
+
 export function petNameCodePoints(name) {
   return [...name].length;
 }

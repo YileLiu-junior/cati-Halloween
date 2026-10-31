@@ -1,5 +1,5 @@
 // 选项顺序和进度保存在当前浏览器，角色仍由服务端计算。
-import { getState, setState, saveResult, fetchQuiz, petNameCodePoints, prefetchQuizImages } from "./store.js";
+import { getState, setState, saveResult, fetchQuiz, completeOptionOrder, petNameCodePoints, prefetchQuizImages } from "./store.js";
 import { track } from "./track.js";
 
 const state = getState();
@@ -34,6 +34,18 @@ async function main() {
     return;
   }
   quizStatus.classList.add("hidden");
+
+  // 旧会话的选项顺序可能缺少新增选项，先补齐再渲染
+  state.order ||= {};
+  let orderChanged = false;
+  for (const q of quiz.questions) {
+    const { order, changed } = completeOptionOrder(q, state.order[q.id]);
+    if (changed) {
+      state.order[q.id] = order;
+      orderChanged = true;
+    }
+  }
+  if (orderChanged) setState({ order: state.order });
 
   const questions = quiz.questions;
   let qi = Math.max(0, Math.min(state.currentQ || 0, questions.length - 1));
@@ -83,7 +95,7 @@ async function main() {
     optionsEl.replaceChildren();
     quizError.classList.add("hidden");
     retryBtn.classList.add("hidden");
-    for (const oid of state.order[q.id]) {
+    for (const oid of state.order[q.id] || []) {
       const opt = q.options.find((o) => o.id === oid);
       const btn = document.createElement("button");
       btn.type = "button";

@@ -26,8 +26,9 @@ export function scoreAnswers(quiz, optionIds) {
   for (const oid of optionIds) {
     const o = OPTION_INDEX.get(oid);
     if (!o) return null;
-    axes[o.axis] += o.delta;
-    for (const [cid, pts] of Object.entries(o.points)) scores[cid] += pts;
+    // 中庸选项（axis:null）不加属性分
+    if (o.axis) axes[o.axis] += o.delta;
+    for (const [cid, pts] of Object.entries(o.points || {})) scores[cid] += pts;
   }
   for (const a of AXES) axes[a] = Math.max(0, Math.min(10, axes[a]));
   const maxVal = Math.max(...Object.values(scores));

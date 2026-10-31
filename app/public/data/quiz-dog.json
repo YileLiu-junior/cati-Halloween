@@ -1,5 +1,5 @@
 {
-  "quizVersion": "dog-2026v2",
+  "quizVersion": "dog-2026v3",
   "petType": "dog",
   "defaultPetName": "我家狗",
   "searchPhrase": "喵灵万圣节",
@@ -261,6 +261,13 @@
             "witch": 2,
             "bat": 1
           }
+        },
+        {
+          "id": "q1n",
+          "text": "听到动静，抬头看看",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -307,6 +314,13 @@
             "zombie": 2,
             "clown": 1
           }
+        },
+        {
+          "id": "q2n",
+          "text": "饿了就吃，不挑",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -355,6 +369,13 @@
             "bat": 3,
             "mummy": 1
           }
+        },
+        {
+          "id": "q3n",
+          "text": "睡得正香，没动静",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -402,6 +423,13 @@
             "vampire": 2,
             "gargoyle": 1
           }
+        },
+        {
+          "id": "q4n",
+          "text": "叫两声，看看情况",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -449,6 +477,13 @@
             "werewolf": 2,
             "gargoyle": 1
           }
+        },
+        {
+          "id": "q5n",
+          "text": "偶尔有，说不上来",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -496,6 +531,13 @@
             "gargoyle": 2,
             "pumpkin": 1
           }
+        },
+        {
+          "id": "q6n",
+          "text": "看它心情，都可能",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -544,6 +586,13 @@
             "clown": 2,
             "franken": 1
           }
+        },
+        {
+          "id": "q7n",
+          "text": "玩一会儿就休息",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -591,6 +640,13 @@
             "bat": 2,
             "vampire": 1
           }
+        },
+        {
+          "id": "q8n",
+          "text": "互不干涉，各过各的",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -638,6 +694,13 @@
             "pirate": 3,
             "franken": 1
           }
+        },
+        {
+          "id": "q9n",
+          "text": "可以出门，但要牵好",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     },
@@ -685,6 +748,13 @@
             "franken": 2,
             "clown": 1
           }
+        },
+        {
+          "id": "q10n",
+          "text": "看一眼，继续待着",
+          "axis": null,
+          "delta": 0,
+          "points": {}
         }
       ]
     }

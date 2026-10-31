@@ -5,7 +5,7 @@ import { PNG } from "pngjs";
 async function answerN(page, n, pick = 0) {
   for (let i = 0; i < n; i++) {
     const progress = await page.locator("#progress").innerText();
-    await expect(page.locator("#options .option")).toHaveCount(4);
+    await expect(page.locator("#options .option")).toHaveCount(5);
     await page.locator("#options .option").nth(pick).click();
     if (progress.includes("10 / 10")) {
       await expect(page).toHaveURL(/\/result(?:\.html)?(?:\?.*)?$/, { timeout: 15_000 });
@@ -79,6 +79,39 @@ test.describe("首页与答题", () => {
     await page.reload();
     await expect(page.locator("#options .option.selected")).toHaveAttribute("data-oid", selected);
     expect(await page.locator("#options .option").allTextContents()).toEqual(order);
+  });
+
+  test("旧会话只有 4 个旧选项时自动补齐为 5 个", async ({ page }) => {
+    await startQuiz(page, "旧会话");
+    const state = await readState(page);
+    const legacy = state.order.q1.filter((id) => /[a-d]$/.test(id));
+    expect(legacy).toHaveLength(4);
+    state.order.q1 = legacy;
+    await page.evaluate((value) => localStorage.setItem("peti:v1", JSON.stringify(value)), state);
+    await page.reload();
+    await expect(page.locator("#progress")).toHaveText("第 1 / 10 题");
+    await expect(page.locator("#options .option")).toHaveCount(5);
+    const after = await readState(page);
+    expect(after.order.q1).toHaveLength(5);
+    expect(new Set(after.order.q1).size).toBe(5);
+    expect(after.order.q1.filter((id) => !legacy.includes(id))).toEqual(["q1n"]);
+  });
+
+  test("十题全选中庸选项仍可提交并展示结果", async ({ page }) => {
+    await startQuiz(page, "中立");
+    for (let i = 0; i < 10; i++) {
+      const progress = await page.locator("#progress").innerText();
+      const neutral = page.locator('#options .option[data-oid$="n"]');
+      await expect(neutral).toHaveCount(1);
+      await neutral.click();
+      if (progress.includes("10 / 10")) {
+        await expect(page).toHaveURL(/\/result(?:\.html)?(?:\?.*)?$/, { timeout: 15_000 });
+      } else {
+        await expect(page.locator("#progress")).not.toHaveText(progress);
+      }
+    }
+    await expect(page.locator("#roleName")).toBeVisible();
+    await expect(page.locator("#rarity")).toContainText("概率为");
   });
 
   test("快速重复选择只回答当前一题", async ({ page }) => {
@@ -411,7 +444,7 @@ test.describe("结果、历史与接口", () => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       newSession = await (await page.request.post("/api/sessions", {
-        data: { petType: "cat", quizVersion: "cat-2026v2", source: "test" },
+        data: { petType: "cat", quizVersion: "cat-2026v3", source: "test" },
       })).json();
       await page.evaluate((state) => localStorage.setItem("peti:v1", JSON.stringify(state)), {
         ...original, ...newSession, petName: "团子", answers: {}, currentQ: 0, result: null,
@@ -479,13 +512,13 @@ test.describe("结果、历史与接口", () => {
 
 test.describe("接口校验与狗版", () => {
   test("quizVersion 与 petType 不匹配返回 PARAM_MISSING", async ({ request }) => {
-    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v2", source: "test" } });
+    const response = await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "dog-2026v3", source: "test" } });
     expect(response.status()).toBe(400);
     expect((await response.json()).code).toBe("PARAM_MISSING");
   });
 
   test("petName 超 12 码点返回 PET_NAME_TOO_LONG", async ({ request }) => {
-    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v2", source: "test" } })).json();
+    const session = await (await request.post("/api/sessions", { data: { petType: "cat", quizVersion: "cat-2026v3", source: "test" } })).json();
     const response = await request.post("/api/results", { data: { ...session, optionIds: Array.from({ length: 10 }, (_, i) => `q${i + 1}a`), petName: "一二三四五六七八九十十一二" } });
     expect((await response.json()).code).toBe("PET_NAME_TOO_LONG");
   });

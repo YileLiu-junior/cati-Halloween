@@ -155,7 +155,9 @@ input { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 10px; b
 .viewer-note { text-align: center; color: var(--text-dim); font-size: 11px; padding: 6px 16px max(14px, env(safe-area-inset-bottom)); }
 .custom-dialog { position: fixed; inset: 0; margin: auto; width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--char); color: var(--text); box-shadow: 0 24px 80px oklch(0.08 0.008 320 / 0.6); }
 .custom-dialog::backdrop { background: oklch(0.10 0.008 320 / 0.82); }
-.custom-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -8px 12px 0; }
+.custom-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -8px 12px 0; }
+.custom-heading-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.quota-help { margin-top: 0; }
 .custom-kicker { color: var(--orange); font-size: 12px; }
 .custom-heading .icon-button { border-color: transparent; background: none; }
 .custom-dialog h2 { font-size: 24px; line-height: 1.4; }
@@ -210,6 +212,32 @@ input { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 10px; b
 .custom-progress { font-size: 13px; color: var(--orange); margin-top: 12px; }
 .custom-progress:empty { display: none; }
 .custom-dialog .error { margin-top: 12px; }
+/* 限时免费角标：实色文字 + 伪元素扫光，不使用 gradient text。 */
+.quota-badge { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 12px; border-radius: 999px; border: 1px solid oklch(0.90 0.12 75 / 0.72); background: var(--orange); color: var(--near-black); font-size: 12px; font-weight: 750; line-height: 1.2; white-space: nowrap; transition: none; }
+.quota-badge-label { position: relative; z-index: 1; }
+.quota-badge::after { content: ""; position: absolute; z-index: 0; top: -40%; bottom: -40%; left: 0; width: 38%; background: oklch(1 0 0 / 0.34); transform: translateX(-160%) skewX(-18deg); animation: quota-sweep 3s ease-in-out infinite; pointer-events: none; }
+@keyframes quota-sweep { 0%, 55% { transform: translateX(-160%) skewX(-18deg); } 85%, 100% { transform: translateX(420%) skewX(-18deg); } }
+.quota-badge[data-state="closed"] { background: oklch(0.32 0.02 320); color: var(--text-dim); border-color: var(--line); }
+.quota-badge[data-state="closed"]::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .quota-badge::after { animation: none; opacity: 0; } }
+/* 问卷与价格选项：每个可点击项至少 44px，320px 下可换行。 */
+#surveyStep { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+#surveyHeading { font-size: 17px; line-height: 1.5; }
+#surveyHeading:focus { outline: none; }
+#surveyHeading:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
+#satisfactionChoices { display: flex; gap: 8px; margin-top: 12px; }
+#satisfactionChoices button { flex: 1; min-height: 44px; }
+#priceQuestion { margin-top: 16px; }
+#priceQuestion h4 { font-size: 14px; font-weight: 650; }
+#priceChoices { display: flex; gap: 8px; margin-top: 10px; }
+.price-option { flex: 1; min-height: 44px; padding: 8px 4px; white-space: nowrap; }
+#skipPriceBtn { display: block; width: 100%; min-height: 44px; margin-top: 8px; }
+#unsatisfiedGuide { margin-top: 16px; }
+#regenerateChoices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#regenerateChoices button { flex: 1 1 140px; min-height: 44px; }
+#surveyStatus { margin-top: 8px; font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+#surveyStatus:empty { display: none; }
+.custom-tip { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin-top: 16px; text-decoration: none; }
 @media (max-width: 350px) { .custom-dialog { padding: 20px 16px; } .custom-dialog h2 { font-size: 21px; } .custom-steps { font-size: 10px; } }
 #resultError { margin-top: 12px; }
 .result-footer { text-align: center; font-size: 11px; letter-spacing: 0.1em; color: var(--text-dim); margin-top: 48px; }

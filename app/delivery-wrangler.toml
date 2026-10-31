@@ -5,8 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
 [vars]
-DELIVERY_ENABLED = "false"
+# 免费生成依赖心跳与队列，投递 Worker 必须保持启用。
+DELIVERY_ENABLED = "true"
 CUSTOM_GENERATION_ENABLED = "true"
+FREE_GENERATION_ENABLED = "true"
+PAYMENT_ENABLED = "false"
 PETI_PUBLIC_ORIGIN = "https://peti-halloween.pages.dev"
 AFDIAN_PLAN_ID = "2315e4b0d2e911f186f652540025c377"
 AFDIAN_SKU_ID = "231df344d2e911f1b46452540025c377"

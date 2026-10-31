@@ -6,6 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 PETI_TEST_MODE = "true"
 CUSTOM_GENERATION_ENABLED = "true"
+FREE_GENERATION_ENABLED = "true"
+PAYMENT_ENABLED = "false"
 PETI_PUBLIC_ORIGIN = "https://peti-avatar-preview.pages.dev"
 AFDIAN_PLAN_ID = "preview-plan"
 AFDIAN_SKU_ID = "preview-sku"

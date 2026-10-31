@@ -2,6 +2,8 @@ import { authorize, amountFen, fail, guarded, orderPayload, paymentConfigured, p
 import { generationProfile, generationSnapshot } from "../lib/generation-config.js";
 
 export const onRequestPost = ({ request, env }) => guarded(async () => {
+  // 免费体验期间付款链路休眠，直接引导用户走免费生成。
+  if (env.PAYMENT_ENABLED !== "true") fail("PAYMENT_DISABLED", "免费体验期间不需要付款，请直接生成头像", 503);
   requireStorage(env);
   const { token, testId, photoId, roleId } = await request.json();
   const { tokenHash, result } = await authorize(env, testId, token);

@@ -12,6 +12,8 @@
   Cache-Control: public, max-age=86400
 /data/quiz-*.json
   Cache-Control: public, max-age=3600
+/js/config.js
+  Cache-Control: no-cache
 /assets/bgm.mp3
   Cache-Control: public, max-age=86400
 /avatar.html

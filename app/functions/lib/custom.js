@@ -79,17 +79,43 @@ export function generationConfigured(env) {
     && ["cat", "dog"].some(pet => generationProfile(pet)?.prompt?.trim() && Object.keys(generationProfile(pet)?.roleImageKeys || {}).length));
 }
 
-export async function requireGeneration(env, result) {
-  if (!generationConfigured(env)) fail("SERVICE_NOT_CONFIGURED", "定制服务尚未开放，暂不收款", 503);
-  const heartbeat = await env.PETI_DB.prepare("SELECT value,updated_at FROM delivery_control WHERE key='heartbeat'").first();
-  if (heartbeat?.value !== "ok" || Date.now() - heartbeat.updated_at > 300_000) fail("DELIVERY_UNAVAILABLE", "头像生成服务正在维护，暂不收款", 503);
-  // 角色没有登记参考图时在收款前拦截，避免付款后无法生成。
-  const profile = result?.generation || generationSnapshot(result || {});
-  if (!profile.prompt?.trim() || !profile.referenceKey) fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
-  const key = profile.referenceKey;
+// 免费单以 plan_id 或 0 金额识别，兼容旧付费订单。
+export function isFreeOrder(order) {
+  return order?.plan_id === "free" || order?.amount_fen === 0;
+}
+
+// 免费生成只依赖模型、队列、订单凭证与总开关，不再要求爱发电商品配置。
+export function freeGenerationConfigured(env) {
+  return Boolean(env.FREE_GENERATION_ENABLED !== "false" && env.CUSTOM_GENERATION_ENABLED !== "false"
+    && env.ARK_API_KEY?.trim() && env.PETI_DELIVERY_QUEUE && env.ORDER_ACCESS_SECRET?.length >= 32);
+}
+
+async function headReference(env, key) {
   const object = typeof key === "string" && key.startsWith("references/") ? await env.PETI_IMAGES.head(key) : null;
   if (!object || !["image/png", "image/jpeg", "image/webp"].includes(object.httpMetadata?.contentType) || object.size <= 0 || object.size > 10 * 1024 * 1024) {
-    fail("SERVICE_NOT_CONFIGURED", "该角色的定制素材尚未就绪，暂不收款", 503);
+    return false;
+  }
+  return true;
+}
+
+export async function requireGeneration(env, result, free = false) {
+  if (!generationConfigured(env)) fail("SERVICE_NOT_CONFIGURED", free ? "免费生图暂时维护中，请稍后再试" : "定制服务尚未开放，暂不可用", 503);
+  const heartbeat = await env.PETI_DB.prepare("SELECT value,updated_at FROM delivery_control WHERE key='heartbeat'").first();
+  if (heartbeat?.value !== "ok" || Date.now() - heartbeat.updated_at > 300_000) fail("DELIVERY_UNAVAILABLE", free ? "免费生图暂时维护中，请稍后再试" : "头像生成服务正在维护，暂不可用", 503);
+  // 角色没有登记参考图时提前拦截，避免占用额度或付款后无法生成。
+  const profile = result?.generation || generationSnapshot(result || {});
+  if (!profile.prompt?.trim() || !profile.referenceKey) fail("SERVICE_NOT_CONFIGURED", free ? "该角色的免费生图素材尚未就绪，请稍后再试" : "该角色的定制素材尚未就绪，暂不可用", 503);
+  if (!await headReference(env, profile.referenceKey)) fail("SERVICE_NOT_CONFIGURED", free ? "该角色的免费生图素材尚未就绪，请稍后再试" : "该角色的定制素材尚未就绪，暂不可用", 503);
+}
+
+// 免费入口额外要求开关、心跳和角色参考图都可用；文案不出现付款相关表述。
+export async function requireFreeGeneration(env, result) {
+  if (!freeGenerationConfigured(env)) fail("SERVICE_NOT_CONFIGURED", "免费生图暂时维护中，请稍后再试", 503);
+  const heartbeat = await env.PETI_DB.prepare("SELECT value,updated_at FROM delivery_control WHERE key='heartbeat'").first();
+  if (heartbeat?.value !== "ok" || Date.now() - heartbeat.updated_at > 300_000) fail("DELIVERY_UNAVAILABLE", "免费生图暂时维护中，请稍后再试", 503);
+  const profile = result?.generation || generationSnapshot(result || {});
+  if (!profile.prompt?.trim() || !profile.referenceKey || !await headReference(env, profile.referenceKey)) {
+    fail("SERVICE_NOT_CONFIGURED", "该角色的免费生图素材尚未就绪，请稍后再试", 503);
   }
 }
 
@@ -105,11 +131,12 @@ export async function loadOrder(env, id, token) {
 export function orderPayload(order) {
   const result = JSON.parse(order.result_json);
   return {
+    orderId: order.id, free: isFreeOrder(order),
     payId: order.id, jobId: order.id, photoId: order.photo_id, status: order.status,
     roleId: result.roleId, petType: result.petType, petName: result.petName, roleName: result.roleName,
     paidAt: order.paid_at, deliveredAt: order.delivered_at, refundStatus: order.refund_status || "none",
     primaryRefunded: Boolean(order.primary_refunded),
-    refundEligible: Boolean(order.platform_order_no && (["failed", "uncertain"].includes(order.status) || Date.now() - order.paid_at >= 600_000)),
+    refundEligible: Boolean(order.amount_fen > 0 && order.platform_order_no && (["failed", "uncertain"].includes(order.status) || Date.now() - order.paid_at >= 600_000)),
     amountFen: order.amount_fen, expiresAt: new Date(order.expires_at).toISOString(),
     retryable: Boolean(order.retryable && order.attempts < 2), errorCode: order.error_code,
     imageUrl: order.status === "ready" && !imageWithheld(order) ? `/api/jobs/${order.id}/image` : null,
