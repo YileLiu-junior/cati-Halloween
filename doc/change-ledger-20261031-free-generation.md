@@ -226,3 +226,12 @@
 - 测试：`quiz.spec.js` 断言 `#viewerImage` 与 `#openOriginalImage` 为 `.jpg`；JPG 首次加载较慢，测试等待查看器完成首帧缩放后再比较缩放宽度。
 
 验证：Playwright 75/75、Node API 62/62。未部署，部署时需带上新增 JPG。
+
+## 19. 2026-10-31 移动端后台音乐立即静音（本地完成，未部署）
+
+- 原因：移动端 `audio.pause()` 到扬声器真正停止有约 1 秒缓冲；锁屏时也可能只触发页面隐藏或冻结。
+- `audio.js` 的 `pauseForBackground` 改为：原本在播时先 `audio.muted = true` 立即静音，再 `pause()`、保存位置。`resumeInForeground` 先 `audio.muted = false` 再 `play()`；`play()` 内部也清掉元素静音，避免点播放无声。
+- 监听入口：`blur`、`visibilitychange`（hidden）、`pagehide`、`document.freeze`；`focus`/`pageshow`/可见时恢复。静音偏好仍优先，初始在后台不自动播放。
+- 测试：`quiz.spec.js` 音乐用例断言 `blur`、隐藏、`pagehide`、`freeze` 后 `audio.muted === true`，回前台后 `muted === false` 且继续播放。
+
+验证：Playwright 75/75、Node API 62/62。未部署；真机锁屏需另行复验。

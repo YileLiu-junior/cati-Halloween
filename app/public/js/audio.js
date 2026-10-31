@@ -28,6 +28,7 @@ function render() {
 }
 async function play() {
   if (muted || document.hidden || !audio.paused) return;
+  audio.muted = false;
   try {
     await audio.play();
     feedback.classList.add("hidden");
@@ -66,19 +67,25 @@ function savePosition() {
 // 失焦或隐藏时暂停，返回时只恢复原本在播的音乐。
 let resumeOnVisible = false;
 function pauseForBackground() {
-  if (!audio.paused && !muted) resumeOnVisible = true;
+  const wasPlaying = !audio.paused && !muted;
+  if (wasPlaying) resumeOnVisible = true;
+  // 移动端 pause() 到真正出声停止之间可能有约 1 秒缓冲，先静音再暂停。
+  if (wasPlaying) audio.muted = true;
   audio.pause();
   savePosition();
 }
 function resumeInForeground() {
   if (document.hidden || !resumeOnVisible) return;
   resumeOnVisible = false;
+  audio.muted = false;
   if (!muted) void play();
 }
 window.addEventListener("blur", pauseForBackground);
 window.addEventListener("focus", resumeInForeground);
 window.addEventListener("pagehide", pauseForBackground);
 window.addEventListener("pageshow", resumeInForeground);
+// Chrome Page Lifecycle：标签页被冻结时也立即停声。
+document.addEventListener("freeze", pauseForBackground);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pauseForBackground();

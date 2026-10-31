@@ -264,3 +264,14 @@
 4. `tests/quiz.spec.js` 断言查看器 `src` 与「打开原图」为 `.jpg`；补了一次等待查看器完成首次缩放，避免未缓存的 JPG 加载事件与读取初始宽度竞速。
 
 验证：Playwright 75/75、Node API 62/62。未部署；JPG 是新增静态资源，部署时需要随 `static-cards/` 一起上传。
+
+## 27. 2026-10-31 移动端后台音乐延迟关停（本地完成，未部署）
+
+用户反馈手机端退到后台后约 1 秒才静音，锁屏也没有立即停止。原因是移动端 `audio.pause()` 到音频输出真正停止之间存在播放缓冲。现改为：
+
+1. 失焦、`visibilitychange` 隐藏、`pagehide`、`freeze` 触发时，先 `audio.muted = true` 立即静音，再 `pause()` 并保存位置。
+2. 回到前台且原本在播时，先 `audio.muted = false` 再 `play()`；`play()` 内部也确保元素未静音，避免手动点播放时无声。
+3. 新增 `document` 的 `freeze` 监听，覆盖 Chrome Page Lifecycle 的页面冻结；锁屏会经由 `visibilitychange` / `pagehide` / `freeze` 中至少一个入口立即静音。
+4. 静音偏好仍优先：用户主动静音时切后台不会恢复；页面初始在后台时不自动播放。
+
+测试：`quiz.spec.js` 的音乐用例覆盖 `blur`、隐藏、`pagehide`、`freeze`，并断言触发瞬间 `audio.muted` 为 true、回前台后恢复为 false 并继续播放。验证：Playwright 75/75、Node API 62/62。未部署，需真机锁屏复验。

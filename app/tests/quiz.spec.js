@@ -214,21 +214,29 @@ test.describe("首页与答题", () => {
     expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    expect(await page.evaluate(() => document.querySelector("audio").muted)).toBe(true);
     await page.evaluate(() => {
       Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
       document.dispatchEvent(new Event("visibilitychange"));
     });
     expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    expect(await page.evaluate(() => document.querySelector("audio").muted)).toBe(true);
     await page.evaluate(() => {
       Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
       document.dispatchEvent(new Event("visibilitychange"));
     });
     await expect.poll(() => page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
+    await expect.poll(() => page.evaluate(() => document.querySelector("audio").muted)).toBe(false);
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
     expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    expect(await page.evaluate(() => document.querySelector("audio").muted)).toBe(true);
     await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
     await expect.poll(() => page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
+    await expect.poll(() => page.evaluate(() => document.querySelector("audio").muted)).toBe(false);
+    await page.evaluate(() => document.dispatchEvent(new Event("freeze")));
+    expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    expect(await page.evaluate(() => document.querySelector("audio").muted)).toBe(true);
   });
 });
 
