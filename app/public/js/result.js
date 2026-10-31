@@ -1,4 +1,4 @@
-import { roleCardUrl, roleAtlasUrl } from "./role-assets.js";
+import { roleCardUrl, roleCardJpgUrl, roleAtlasUrl } from "./role-assets.js";
 import { getState, setState, getResult, saveResult, renameResult, petNameCodePoints, fetchQuiz } from "./store.js";
 import { initTrack, track, observeView } from "./track.js";
 initTrack();
@@ -58,7 +58,9 @@ async function boot() {
   image.alt = `${result.roleName}的静态角色卡`;
   if (ROLES.has(result.roleId)) {
     image.src = roleCardUrl(entry.petType, result.roleId);
-    $("viewCardLink").href = image.src;
+    // 页面展示用 WebP；点开大图和长按保存使用同构图 JPG。
+    image.dataset.viewSrc = roleCardJpgUrl(entry.petType, result.roleId);
+    $("viewCardLink").href = image.dataset.viewSrc;
   }
   try {
     if (!image.src) throw new Error("角色图片未找到");

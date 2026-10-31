@@ -211,8 +211,18 @@
 
 ## 17. 2026-10-31 生成等待提示与成品加载占位（本地完成，未部署）
 
-1. **预计等待一分钟**：`result.html` 的 `#genStepWait` 内新增 `span.gen-hint`，`.gen-hint { margin-left:auto; font-size:11px; white-space:nowrap }`，只在两步进度可见时出现。
+1. **预计等待两分钟**：`result.html` 的 `#genStepWait` 内新增 `span.gen-hint`，`.gen-hint { margin-left:auto; font-size:11px; white-space:nowrap }`，只在两步进度可见时出现。
 2. **成品加载占位**：`result.html` 新增 `#customImagePlaceholder`，`style.css` 用 `aspect-ratio:1` 与成品同尺寸，内含 28px `.image-spinner` 与「正在加载头像…」。`custom.js` 的 `loadOutput` 在请求前 `show` 占位，成功、失败、`resetOutput` 都隐藏；`finally` 兜底隐藏。`prefers-reduced-motion` 停止转圈。
 3. **测试**：`custom.spec.js` 两步进度用例断言提示文案；新增延迟图片响应用例，验证占位先出现、图片后出现、占位消失。
 
 截图：`free-generation-eta-390.png`、`free-image-loading-390.png`。验证：Playwright 75/75、Node API 62/62。未部署。
+
+## 18. 2026-10-31 角色卡大图改用 JPG（本地完成，未部署）
+
+- `tools/prepare_web_assets.py` 现在同时输出 `static-cards/<version>/<pet>/<role>.jpg`（900×1380、quality 90、4:4:4、progressive），WebP 与缩略图流程不变。新增 32 张 JPG，合计约 9.8MB。
+- `public/js/role-assets.js` 新增 `roleCardJpgUrl(petType, roleId)`。
+- `public/js/result.js` 给 `#roleCardImage` 写入 `dataset.viewSrc`，并把 `#viewCardLink.href` 指向 JPG；`public/js/result-media.js` 打开大图时用 `dataset.viewSrc || currentSrc`。
+- 结果：页面展示与答题预取仍是 WebP；点开大图后查看器图片和「打开原图」都是 `.jpg`，长按保存得到 jpg。JPG 只在大图打开时按需加载。
+- 测试：`quiz.spec.js` 断言 `#viewerImage` 与 `#openOriginalImage` 为 `.jpg`；JPG 首次加载较慢，测试等待查看器完成首帧缩放后再比较缩放宽度。
+
+验证：Playwright 75/75、Node API 62/62。未部署，部署时需带上新增 JPG。

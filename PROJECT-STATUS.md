@@ -248,8 +248,19 @@
 
 ## 25. 2026-10-31 生成等待提示与成品加载占位（本地完成，未部署）
 
-1. **预计等待**：生成进度第二步「正在等待图片生成」右侧新增小号灰字「预计等待一分钟」，随步骤列表一起出现。
+1. **预计等待**：生成进度第二步「正在等待图片生成」右侧新增小号灰字「预计等待两分钟」，随步骤列表一起出现。
 2. **成品加载占位**：`status=ready` 但图片尚未到达时，在成品位置显示同尺寸方形占位：深暖黑底、细边框、28px 暖橙转圈与「正在加载头像…」。图片解码后占位隐藏、成品和保存按钮出现；加载失败时隐藏占位并显示错误。占位高度与成品一致，避免图片出现时页面跳动；`prefers-reduced-motion` 下停止转圈。
-3. **测试**：`custom.spec.js` 在两步进度用例里断言「预计等待一分钟」；新增「头像加载前在成品位置显示方形加载占位」用例，用延迟图片响应验证占位出现与消失。
+3. **测试**：`custom.spec.js` 在两步进度用例里断言「预计等待两分钟」；新增「头像加载前在成品位置显示方形加载占位」用例，用延迟图片响应验证占位出现与消失。
 
 改动文件：`public/result.html`、`public/js/custom.js`、`public/css/style.css`、`tests/custom.spec.js`、`DESIGN.md`。验证：Playwright 75/75、Node API 62/62。截图 `app/shots/free-generation-eta-390.png`、`free-image-loading-390.png`。未部署。
+
+## 26. 2026-10-31 角色卡大图改用 JPG 保存（本地完成，未部署）
+
+用户反馈结果页角色卡点开后长按保存得到 WebP，部分相册/微信不便使用。现调整为：
+
+1. `tools/prepare_web_assets.py` 在同一轮合成中额外输出 900×1380 JPG（quality 90、4:4:4、progressive），与现有 WebP 同目录同名，共 32 张，合计约 9.8MB。
+2. 页面展示与预取继续使用 WebP；`role-assets.js` 新增 `roleCardJpgUrl`。
+3. `result.js` 把 JPG 地址写入 `#roleCardImage` 的 `data-view-src` 和 `#viewCardLink.href`；`result-media.js` 打开大图时优先使用该地址。查看器里的图片和「打开原图」都是 `.jpg`，长按保存得到 jpg 文件。
+4. `tests/quiz.spec.js` 断言查看器 `src` 与「打开原图」为 `.jpg`；补了一次等待查看器完成首次缩放，避免未缓存的 JPG 加载事件与读取初始宽度竞速。
+
+验证：Playwright 75/75、Node API 62/62。未部署；JPG 是新增静态资源，部署时需要随 `static-cards/` 一起上传。

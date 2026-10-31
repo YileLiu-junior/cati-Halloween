@@ -212,6 +212,8 @@ test.describe("首页与答题", () => {
     if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
     await page.evaluate(() => {
       Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
       document.dispatchEvent(new Event("visibilitychange"));
@@ -223,6 +225,10 @@ test.describe("首页与答题", () => {
     });
     await expect.poll(() => page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+    expect(await page.evaluate(() => document.querySelector("audio").paused)).toBe(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+    await expect.poll(() => page.evaluate(() => document.querySelector("audio").paused)).toBe(false);
   });
 });
 
@@ -360,10 +366,13 @@ test.describe("结果、历史与接口", () => {
     await page.locator("#roleCardImage").click();
     await expect(page.locator("#imageViewer")).toBeVisible();
     await expect.poll(() => page.locator("#viewerImage").evaluate(img => img.naturalWidth)).toBe(900);
+    // JPG 首次加载比缓存的 WebP 慢，等查看器按视口完成首次缩放后再读初始宽度。
+    await expect.poll(() => page.locator("#viewerImage").evaluate(img => img.getBoundingClientRect().width)).toBeLessThan(900);
     const initial = await page.locator("#viewerImage").evaluate(img => img.getBoundingClientRect().width);
     await page.locator("#zoomInImage").click();
     expect(await page.locator("#viewerImage").evaluate(img => img.getBoundingClientRect().width)).toBeGreaterThan(initial);
-    await expect(page.locator("#openOriginalImage")).toHaveAttribute("href", /\/static-cards\/.+\.webp$/);
+    await expect(page.locator("#viewerImage")).toHaveAttribute("src", /\/static-cards\/.+\.jpg$/);
+    await expect(page.locator("#openOriginalImage")).toHaveAttribute("href", /\/static-cards\/.+\.jpg$/);
     await page.locator("#resetImageZoom").click();
     await expect(page.locator("#resetImageZoom")).toHaveText("1×");
     await page.keyboard.press("Escape");

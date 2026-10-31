@@ -254,7 +254,7 @@ test("生成中切换到等待图片生成，完成后隐藏两步进度", async
   // 先等生成请求真正返回，避免轮询计时器与响应竞速。
   await expect(page.locator("#genStepWait")).toHaveAttribute("data-state", "active");
   await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "done");
-  await expect(page.locator("#genStepWait")).toContainText("预计等待一分钟");
+  await expect(page.locator("#genStepWait")).toContainText("预计等待两分钟");
   await expect(page.locator("#generationLive")).toHaveText("正在等待图片生成");
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   await page.clock.fastForward(5000);

@@ -27,7 +27,7 @@ function render() {
   toggle.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/>${playing ? '<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>' : '<path d="m16 9 5 6m0-6-5 6"/>'}</svg>`;
 }
 async function play() {
-  if (muted || !audio.paused) return;
+  if (muted || document.hidden || !audio.paused) return;
   try {
     await audio.play();
     feedback.classList.add("hidden");
@@ -63,18 +63,26 @@ audio.addEventListener("loadedmetadata", () => {
 function savePosition() {
   try { sessionStorage.setItem(POSITION_KEY, String(audio.currentTime)); } catch { /* 不影响播放。 */ }
 }
-window.addEventListener("pagehide", savePosition);
-// 切到后台立即暂停，回到前台只恢复原本在播的音乐；静音偏好不受影响。
+// 失焦或隐藏时暂停，返回时只恢复原本在播的音乐。
 let resumeOnVisible = false;
+function pauseForBackground() {
+  if (!audio.paused && !muted) resumeOnVisible = true;
+  audio.pause();
+  savePosition();
+}
+function resumeInForeground() {
+  if (document.hidden || !resumeOnVisible) return;
+  resumeOnVisible = false;
+  if (!muted) void play();
+}
+window.addEventListener("blur", pauseForBackground);
+window.addEventListener("focus", resumeInForeground);
+window.addEventListener("pagehide", pauseForBackground);
+window.addEventListener("pageshow", resumeInForeground);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    resumeOnVisible = !audio.paused && !muted;
-    if (resumeOnVisible) audio.pause();
-    savePosition();
-  } else if (resumeOnVisible) {
-    resumeOnVisible = false;
-    if (!muted) void play();
-  }
+    pauseForBackground();
+  } else resumeInForeground();
 });
 let lastSaved = 0;
 audio.addEventListener("timeupdate", () => {

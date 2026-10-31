@@ -103,7 +103,7 @@ export function initResultMedia(getEntry) {
   $("viewCardLink").addEventListener("click", event => {
     const image = $("roleCardImage");
     if (!image.complete || !image.naturalWidth) return;
-    event.preventDefault(); viewImage(image.currentSrc, "角色卡大图", image.alt, $("viewCardLink"));
+    event.preventDefault(); viewImage(image.dataset.viewSrc || image.currentSrc, "角色卡大图", image.alt, $("viewCardLink"));
   });
   $("closeImageViewer").addEventListener("click", () => viewer.close());
   viewer.addEventListener("close", () => { lockPage(); viewerTrigger?.focus({ preventScroll: true }); });

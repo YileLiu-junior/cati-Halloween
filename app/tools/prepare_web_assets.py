@@ -38,5 +38,7 @@ for pet, mapping in [("cat", "role-references.js"), ("dog", "dog-role-references
             subject.thumbnail((792, 966), Image.Resampling.LANCZOS)
             card.alpha_composite(subject, ((900 - subject.width) // 2, round(1380 * 0.47 - subject.height / 2)))
             card.save(cards / f"{role}.webp", "WEBP", quality=94, method=6, exact=True)
+            # 大图查看用 JPG，长按保存时得到通用格式；展示与预取继续用 WebP。
+            card.convert("RGB").save(cards / f"{role}.jpg", "JPEG", quality=90, optimize=True, progressive=True, subsampling=0)
     atlas.save(thumbs / "atlas.webp", "WEBP", quality=80, method=6, exact=True)
     print(f"{pet}: 16 cards {sum(p.stat().st_size for p in cards.glob('*.webp')) / 1024:.0f}KiB; atlas {(thumbs / 'atlas.webp').stat().st_size / 1024:.0f}KiB", flush=True)
