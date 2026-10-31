@@ -230,7 +230,8 @@ test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷",
   await page.locator("#startFreeBtn").click();
   await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "active");
   // 等首轮渲染完成并挂上 5 秒轮询，再推进时钟。
-  await expect(page.locator("#checkJobBtn")).toBeVisible();
+  await expect(page.locator("#generationProgress")).toBeVisible();
+  await expect(page.getByRole("button", { name: "查询进度" })).toHaveCount(0);
   expect(flow.calls.gets).toBe(1);
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   flow.state.free = quota({ used: 13, remaining: 987, browserUsed: 1, browserRemaining: 1 });
@@ -241,6 +242,12 @@ test("生成中每 5 秒轮询，ready 后显示头像并出现满意度问卷",
   await expect(page.locator("#surveyHeading")).toBeFocused();
   await expect(page.locator('[data-satisfaction="3"]')).toBeVisible();
   await expect(page.locator('[data-satisfaction="1"]')).toBeVisible();
+  // 保存直接得到 JPG 文件，不再打开新的 PNG 页面。
+  const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#saveCustomBtn").click()]);
+  expect(download.suggestedFilename()).toMatch(/\.jpg$/);
+  const bytes = await readFile(await download.path());
+  expect(bytes.subarray(0, 2).toString("hex")).toBe("ffd8");
+  expect(bytes.length).toBeGreaterThan(10_000);
 });
 
 test("生成中切换到等待图片生成，完成后隐藏两步进度", async ({ page, request }) => {
@@ -359,6 +366,33 @@ test("打赏文案强调紫色下划线的“打赏”并跟随当前价格", as
   expect(style.color).toBe("oklch(0.82 0.12 316)");
 });
 
+test("手机保存头像走系统面板输出 JPG，不离开当前页面", async ({ browser, request }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  try {
+    await page.addInitScript(() => {
+      window.__sharedFiles = [];
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: (data) => Boolean(data?.files?.length) });
+      Object.defineProperty(navigator, "share", { configurable: true, value: async (data) => {
+        window.__sharedFiles.push(...data.files.map(file => ({ name: file.name, type: file.type })));
+      } });
+    });
+    await resultPage(page, request);
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    await mockFreeFlow(page, { order: freeOrder({ status: "ready", imageUrl: IMAGE_PATH }) });
+    const before = page.url();
+    await page.locator("#customBtn").click();
+    await expect(page.locator("#customImage")).toBeVisible();
+    await page.locator("#saveCustomBtn").click();
+    await expect.poll(() => page.evaluate(() => window.__sharedFiles.length)).toBe(1);
+    const shared = await page.evaluate(() => window.__sharedFiles[0]);
+    expect(shared.type).toBe("image/jpeg");
+    expect(shared.name).toMatch(/\.jpg$/);
+    expect(page.url()).toBe(before);
+    await expect(page.locator("#saveCustomBtn")).toHaveText("已打开保存面板");
+  } finally { await context.close(); }
+});
+
 test("不满意时换角色再试保留照片，回到角色步骤后再次生成 regenerate=true", async ({ page, request }) => {
   await resultPage(page, request);
   const flow = await mockFreeFlow(page, { onFeedback: answersFeedback });
@@ -366,7 +400,8 @@ test("不满意时换角色再试保留照片，回到角色步骤后再次生�
   await uploadPhoto(page);
   await page.locator("#startFreeBtn").click();
   await expect(page.locator("#genStepRequest")).toHaveAttribute("data-state", "active");
-  await expect(page.locator("#checkJobBtn")).toBeVisible();
+  await expect(page.locator("#generationProgress")).toBeVisible();
+  await expect(page.getByRole("button", { name: "查询进度" })).toHaveCount(0);
   flow.state.order = freeOrder({ status: "ready", imageUrl: IMAGE_PATH });
   await page.clock.fastForward(5000);
   await expect(page.locator("#surveyStep")).toBeVisible();

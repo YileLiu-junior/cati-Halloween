@@ -308,10 +308,16 @@ test.describe("结果、历史与接口", () => {
     await expect(page.locator("#saveCardBtn")).toHaveText("分享结果");
     await page.evaluate(() => {
       window.__posterText = [];
+      window.__posterImages = [];
       const original = CanvasRenderingContext2D.prototype.fillText;
       CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
         if (this.canvas.id === "cardCanvas") window.__posterText.push(text);
         return original.call(this, text, ...args);
+      };
+      const drawImage = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (source, ...args) {
+        if (this.canvas.id === "cardCanvas") window.__posterImages.push(source.currentSrc || source.src || "");
+        return drawImage.call(this, source, ...args);
       };
     });
     await page.locator("#saveCardBtn").click();
@@ -319,6 +325,9 @@ test.describe("结果、历史与接口", () => {
     await expect.poll(() => page.locator("#sharePreviewImage").evaluate(img => img.complete && img.naturalWidth)).toBe(900);
     const drawnText = await page.evaluate(() => window.__posterText.join(""));
     for (const text of [session.petName, session.result.roleName, session.result.quote, session.result.tagline, ...session.result.shortLines]) expect(drawnText).toContain(text);
+    // 分享图结尾附活动二维码。
+    expect(drawnText).toContain("扫码或长按识别");
+    expect(await page.evaluate(() => window.__posterImages.some(src => src.includes("/assets/peti-official-qr.png")))).toBe(true);
     await expect(page.locator("#sharePreviewImage")).toHaveAttribute("alt", /电量.*贴贴.*胆量.*戏精.*干饭.*好奇/);
     const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#saveShareImage").click()]);
     expect(download.suggestedFilename()).toMatch(/\.png$/);

@@ -28,6 +28,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function initCustom(getEntry, openViewer) {
   const dialog = $("customDialog");
   let entry, photo, order, config, normalized, previewUrl, outputUrl, roles = [], selectedRole, roleIndex = 0, touchStart;
+  let avatarJpeg = null, avatarJpegRequest = null;
   let free = null, feedback = null, browserId = null, regenerating = false;
   let serviceSnapshot = null, servicePrefetch = null;
   let waitStarted = null, waitSegment = null, waitTimer = null;
@@ -154,7 +155,6 @@ export function initCustom(getEntry, openViewer) {
     $("pickPhotoBtn").disabled = busy;
     $("photoConsent").disabled = busy;
     $("retryJobBtn").disabled = busy;
-    $("checkJobBtn").disabled = busy;
     for (const button of document.querySelectorAll(".survey-choice")) button.disabled = busy;
     for (const id of ["regeneratePhotoBtn", "regenerateRoleBtn"]) $(id).disabled = busy;
   }
@@ -266,8 +266,50 @@ export function initCustom(getEntry, openViewer) {
   function resetOutput() {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     outputUrl = null; imageLoading = false;
+    avatarJpeg = null; avatarJpegRequest = null;
     $("customImage").removeAttribute("src");
     show("customOutput", false); show("saveCustomBtn", false); show("customImagePlaceholder", false);
+  }
+  function toJpegBlob() {
+    return new Promise((resolve, reject) => {
+      const image = $("customImage");
+      if (!image.naturalWidth) { reject(new Error("头像还没加载完，请稍后再试")); return; }
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      // 成品是透明 PNG；JPG 不支持透明，用暖白底补齐，避免相册里出现黑底。
+      context.fillStyle = "#fdfaf3";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("保存图片失败，请稍后重试")), "image/jpeg", 0.92);
+    });
+  }
+  function prepareAvatarJpeg() {
+    if (avatarJpeg) return Promise.resolve(avatarJpeg);
+    if (avatarJpegRequest) return avatarJpegRequest;
+    const source = outputUrl;
+    const request = (async () => {
+      const image = $("customImage");
+      if (!image.complete) await image.decode().catch(() => {});
+      // 换图或重新生成时丢弃旧成品的转换结果。
+      if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
+      const blob = await toJpegBlob();
+      if (outputUrl !== source) throw new Error("头像已更新，请重新保存");
+      avatarJpeg = blob;
+      return blob;
+    })();
+    avatarJpegRequest = request;
+    request.then(
+      () => { if (avatarJpegRequest === request) avatarJpegRequest = null; },
+      () => { if (avatarJpegRequest === request) avatarJpegRequest = null; },
+    );
+    return request;
+  }
+  function warmAvatarJpeg() {
+    // 图片出现后空闲时先转好 JPG，点击保存时就能立即打开系统面板。
+    const warm = () => { void prepareAvatarJpeg().catch(() => {}); };
+    if ("requestIdleCallback" in window) requestIdleCallback(warm, { timeout: 3000 });
+    else setTimeout(warm, 600);
   }
   function resetPhotoSelection() {
     photo = null; normalized = null;
@@ -283,6 +325,7 @@ export function initCustom(getEntry, openViewer) {
     if (outputUrl) {
       $("customImage").src = outputUrl;
       show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
+      warmAvatarJpeg();
       return;
     }
     if (imageLoading) return;
@@ -293,6 +336,7 @@ export function initCustom(getEntry, openViewer) {
       outputUrl = URL.createObjectURL(await imageBlob(order.imageUrl));
       $("customImage").src = outputUrl;
       show("customOutput"); show("saveCustomBtn"); show("customImagePlaceholder", false);
+      warmAvatarJpeg();
     } catch (err) {
       error(err.message || "头像图片暂时无法读取，请稍后刷新重试");
     } finally { imageLoading = false; show("customImagePlaceholder", false); }
@@ -341,9 +385,12 @@ export function initCustom(getEntry, openViewer) {
   }
   function schedulePoll() {
     clearTimeout(pollTimer);
-    if (!["unlocked", "queued", "generating"].includes(order?.status)) return;
-    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) { show("checkJobBtn"); return; }
-    pollTimer = setTimeout(() => run(checkOrder), 5000);
+    const waiting = ["unlocked", "queued", "generating"].includes(order?.status);
+    // 结果待确认时继续低频自动核对；回到页面时也会立即补查一次。
+    const uncertain = order?.status === "uncertain";
+    if (!waiting && !uncertain) return;
+    if (!dialog.open || document.hidden || Date.now() - pollStart >= 600_000) return;
+    pollTimer = setTimeout(() => run(checkOrder), uncertain ? 30_000 : 5000);
   }
   // 生成中只展示两个阶段：请求已发出、等待出图。完成后整块隐藏。
   function renderGenerationProgress(phase) {
@@ -363,7 +410,7 @@ export function initCustom(getEntry, openViewer) {
     clearTimeout(pollTimer);
     progress("");
     resetOutput();
-    show("retryJobBtn", false); show("checkJobBtn", false); show("tipAuthorLink", false);
+    show("retryJobBtn", false); show("tipAuthorLink", false);
     renderGenerationProgress(null);
     if (!order) return;
     const statusKey = `${order.orderId}:${order.attemptId}:${order.status}`;
@@ -403,7 +450,6 @@ export function initCustom(getEntry, openViewer) {
       // 阶段文案由两步进度承担，避免同一句状态重复两遍。
       renderGenerationProgress(order.status === "generating" ? "waiting" : "sending");
       $("generationMessage").textContent = "";
-      show("checkJobBtn");
       schedulePoll();
       return;
     }
@@ -432,7 +478,7 @@ export function initCustom(getEntry, openViewer) {
       stage("generate");
       $("customTitle").textContent = "头像还在确认中";
       $("generationMessage").textContent = TEXT.uncertain;
-      show("checkJobBtn");
+      schedulePoll();
       return;
     }
     stage("generate");
@@ -475,7 +521,7 @@ export function initCustom(getEntry, openViewer) {
     stage("generate");
     renderGenerationProgress("sending");
     $("generationMessage").textContent = "";
-    show("checkJobBtn", false); show("retryJobBtn", false);
+    show("retryJobBtn", false);
     buttons();
     try {
       const data = await api("/api/free-orders", {
@@ -697,7 +743,6 @@ export function initCustom(getEntry, openViewer) {
   }));
   $("startFreeBtn").addEventListener("click", () => startFreeOrder(regenerating));
   $("retryJobBtn").addEventListener("click", () => { regenerating = true; startFreeOrder(true); });
-  $("checkJobBtn").addEventListener("click", () => { pollStart = Date.now(); run(checkOrder); });
   $("satisfactionChoices").addEventListener("click", (event) => {
     const button = event.target.closest("[data-satisfaction]");
     if (!button) return;
@@ -744,13 +789,48 @@ export function initCustom(getEntry, openViewer) {
     if (!outputUrl) return;
     openViewer?.(outputUrl, "万圣节头像大图", "毛孩子的万圣节头像", $("viewCustomLink"));
   });
-  $("saveCustomBtn").addEventListener("click", () => {
+  $("saveCustomBtn").addEventListener("click", () => run(async () => {
     if (!outputUrl) return;
     track("image_save_click", context());
-    const link = document.createElement("a");
-    link.href = outputUrl; link.download = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.png`;
-    link.click(); $("saveCustomBtn").textContent = "已发起保存，再次保存";
-  });
+    const button = $("saveCustomBtn");
+    button.disabled = true;
+    // 已预编码时保持同步执行，iOS 才能在点击手势内直接打开系统面板。
+    if (!avatarJpeg) button.textContent = "正在生成 JPG…";
+    try {
+      const blob = avatarJpeg || await prepareAvatarJpeg();
+      const filename = `PETI-${entry.petName.replace(/[<>:"/\\|?*\x00-\x1f]/g, "")}-万圣节头像.jpg`;
+      const file = new File([blob], filename, { type: "image/jpeg" });
+      // 手机上用系统面板直接「存储图像」进相册，整个过程留在当前页面。
+      let canShare = false;
+      try {
+        canShare = typeof navigator.share === "function" && typeof navigator.canShare === "function"
+          && matchMedia("(pointer: coarse)").matches && navigator.canShare({ files: [file] });
+      } catch { /* 不支持文件分享时走下载。 */ }
+      if (canShare) {
+        try {
+          await navigator.share({ files: [file], title: "毛孩子的万圣节头像" });
+          button.textContent = "已打开保存面板";
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") { button.textContent = "保存头像"; return; }
+        }
+      }
+      if (/MicroMessenger/i.test(navigator.userAgent)) {
+        // 微信内置浏览器不支持文件下载，也不该把用户带去新页面；改为长按保存。
+        button.textContent = "请长按上方头像保存";
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = filename; link.rel = "noopener";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      button.textContent = "已保存 JPG，再次保存";
+    } finally {
+      button.disabled = false;
+      if (button.textContent === "正在生成 JPG…") button.textContent = "保存头像";
+    }
+  }));
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { endWait("page_hidden"); clearTimeout(pollTimer); }
     else if (!pickingPhoto && dialog.open && ["unlocked", "queued", "generating", "uncertain"].includes(order?.status) && !busy) { beginWait(); run(checkOrder); }

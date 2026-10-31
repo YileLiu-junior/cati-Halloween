@@ -3,6 +3,21 @@ import { track } from "./track.js";
 const $ = (id) => document.getElementById(id);
 const FONT = '"PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 const INK = "oklch(0.94 0.016 75)", MUTED = "oklch(0.72 0.022 65)", GOLD = "oklch(0.79 0.16 65)";
+const QR_SRC = "/assets/peti-official-qr.png";
+const QR_PANEL = 404, QR_IMAGE = 324, QR_PAD = (QR_PANEL - QR_IMAGE) / 2;
+const QR_TOP_GAP = 40, QR_CAPTION_GAP = 22, QR_BOTTOM_PAD = 56;
+let qrRequest;
+
+function loadQr() {
+  // 二维码只是分享图的附加信息，加载失败时仍然输出完整结果图。
+  qrRequest ||= new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = QR_SRC;
+  });
+  return qrRequest;
+}
 
 export const probabilityText = (entry) => `抽中该万圣节${entry.petType === "dog" ? "汪汪" : "喵喵"}卡的概率为 ${entry.result.rarityPct}%`;
 
@@ -21,7 +36,7 @@ function lines(ctx, text, width, font) {
 }
 
 // 直接复用结果数据、高清卡片和已绘制的六轴图，不额外下载截图依赖。
-function drawPoster(entry, image) {
+function drawPoster(entry, image, qr) {
   const canvas = $("cardCanvas"), ctx = canvas.getContext("2d");
   const { petName, result } = entry;
   const lead = lines(ctx, `${petName}万圣节会扮演的角色是…`, 756, "32px");
@@ -36,8 +51,10 @@ function drawPoster(entry, image) {
   const traitsY = rarityY + 100;
   const copyHeight = tagline.length * 48 + 24 + descriptions.reduce((height, text) => height + text.length * 44 + 18, 0);
   const traitsHeight = Math.max(365, copyHeight);
+  const baseHeight = Math.ceil(traitsY + traitsHeight + 128);
+  const qrBlock = qr ? QR_TOP_GAP + QR_PANEL + QR_CAPTION_GAP + 32 + QR_BOTTOM_PAD : 0;
   canvas.width = 900;
-  canvas.height = Math.ceil(traitsY + traitsHeight + 128);
+  canvas.height = baseHeight + qrBlock;
   ctx.fillStyle = "oklch(0.18 0.018 319)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.textBaseline = "top"; ctx.textAlign = "center";
   const text = (rows, x, y, font, height, color) => {
@@ -61,9 +78,17 @@ function drawPoster(entry, image) {
     y += description.length * 44 + 18;
   }
   ctx.textAlign = "center";
-  text(["喵灵万圣节 · 每只毛孩子都有另一面"], 450, canvas.height - 82, "24px", 32, GOLD);
-  text(["AI 生成角色示意"], 450, canvas.height - 44, "19px", 24, MUTED);
-  canvas.setAttribute("aria-label", `${petName}的测评结果。${result.roleName}。${result.quote}。${$("radar").getAttribute("aria-label")}。${result.tagline}。${result.shortLines.join("。")}。`);
+  text(["喵灵万圣节 · 每只毛孩子都有另一面"], 450, baseHeight - 82, "24px", 32, GOLD);
+  text(["AI 生成角色示意"], 450, baseHeight - 44, "19px", 24, MUTED);
+  if (qr) {
+    // 分享图末尾附活动二维码：白底面板顺带补齐静区，缩到手机宽度也还能扫。
+    const qrTop = baseHeight + QR_TOP_GAP, qrLeft = (900 - QR_PANEL) / 2;
+    ctx.fillStyle = "oklch(0.985 0.004 85)";
+    ctx.fillRect(qrLeft, qrTop, QR_PANEL, QR_PANEL);
+    ctx.drawImage(qr, qrLeft + QR_PAD, qrTop + QR_PAD, QR_IMAGE, QR_IMAGE);
+    text(["扫码或长按识别 · 给毛孩子做一张万圣节头像"], 450, qrTop + QR_PANEL + QR_CAPTION_GAP, "23px", 32, MUTED);
+  }
+  canvas.setAttribute("aria-label", `${petName}的测评结果。${result.roleName}。${result.quote}。${$("radar").getAttribute("aria-label")}。${result.tagline}。${result.shortLines.join("。")}。${qr ? "文末附活动二维码。" : ""}`);
   return canvas;
 }
 
@@ -114,8 +139,8 @@ export function initResultMedia(getEntry) {
   window.addEventListener("resize", () => { if (viewer.open) fitImage(); });
 
   async function makePoster() {
-    await document.fonts.ready;
-    const canvas = drawPoster(getEntry(), $("roleCardImage"));
+    const [qr] = await Promise.all([loadQr(), document.fonts.ready]);
+    const canvas = drawPoster(getEntry(), $("roleCardImage"), qr);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("生成分享图片失败，请关闭后重试");
     posterUrl = URL.createObjectURL(blob);
