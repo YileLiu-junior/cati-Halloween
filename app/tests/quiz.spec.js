@@ -203,7 +203,15 @@ test.describe("首页与答题", () => {
     await expect(page.locator("#audioToggle")).toHaveAttribute("aria-pressed", "false");
     await page.reload();
     await expect(page.locator("#audioToggle")).toHaveAttribute("aria-pressed", "false");
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("peti:audio:v1")).muted)).toBe(true);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("peti:audio:v2")).muted)).toBe(true);
+  });
+
+  test("首次进入即尝试播放，首次交互后可靠开始", async ({ page }) => {
+    await page.goto("/");
+    // 浏览器可能拦截无交互自动播放；点击页面任意处后应开始。
+    await page.mouse.click(10, 10);
+    await expect(page.locator("#audioToggle")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".audio-feedback")).toBeHidden();
   });
 
   test("切到后台时暂停音乐，回到前台继续播放", async ({ page }) => {

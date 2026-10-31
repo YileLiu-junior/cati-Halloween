@@ -175,9 +175,9 @@ test("过期备料任务恢复后，旧执行者不能再启动收费调用或�
   f.db.prepare("UPDATE delivery_jobs SET lease_until=0").run();await recoverStaleGenerations(f.env);release();await old;assert.equal(calls,0);assert.equal(f.db.prepare("SELECT state FROM delivery_jobs").get().state,"pending");await run(f,o);assert.equal(calls,1);assert.equal(row(f).status,"ready");
 });
 test("金额不匹配保留真实付款台账供退款，不能因此生成；旧交易不被重新认领",async()=>{
-  const f=await fixture(),o=await newOrder(f);globalThis.fetch=async()=>paidResponse(o,{total_amount:"6.00"});
-  assert.equal((await post(confirm,f,{platformOrderNo:"2026102800000001"},{payId:o.payId})).status,409);assert.equal(row(f).status,"unpaid");assert.equal(f.db.prepare("SELECT amount_fen FROM payment_transactions").get().amount_fen,600);
-  const r=await requestRefund(f.env,row(f),{reason:"payment_unconfirmed"});await reviewRefund(f.env,r.id,{action:"approve"});assert.equal(f.db.prepare("SELECT amount_fen FROM refund_requests").get().amount_fen,600);
+  const f=await fixture(),o=await newOrder(f);globalThis.fetch=async()=>paidResponse(o,{total_amount:"9.99"});
+  assert.equal((await post(confirm,f,{platformOrderNo:"2026102800000001"},{payId:o.payId})).status,409);assert.equal(row(f).status,"unpaid");assert.equal(f.db.prepare("SELECT amount_fen FROM payment_transactions").get().amount_fen,999);
+  const r=await requestRefund(f.env,row(f),{reason:"payment_unconfirmed"});await reviewRefund(f.env,r.id,{action:"approve"});assert.equal(f.db.prepare("SELECT amount_fen FROM refund_requests").get().amount_fen,999);
 });
 test("退款最后一步写入失败时整批回滚，同一笔交易不会留下第二次退款资格",async()=>{
   const f=await fixture(),o=await paidOrder(f);await bindVerifiedPayment(f.env,row(f),paid(o,{out_trade_no:"2026102800000002"}));

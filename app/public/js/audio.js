@@ -1,4 +1,4 @@
-const PREF_KEY = "peti:audio:v1";
+const PREF_KEY = "peti:audio:v2";
 const POSITION_KEY = "peti:audio-position";
 let muted = false;
 try { muted = JSON.parse(localStorage.getItem(PREF_KEY))?.muted === true; } catch { /* 默认首次交互播放。 */ }
@@ -33,10 +33,9 @@ async function play() {
     await audio.play();
     feedback.classList.add("hidden");
   } catch (error) {
-    if (error.name !== "NotAllowedError") {
-      feedback.textContent = "音乐暂时无法播放，点击可重试";
-      feedback.classList.remove("hidden");
-    }
+    // 浏览器禁止无交互自动播放时，明确告诉用户点一下就能开始。
+    feedback.textContent = error.name === "NotAllowedError" ? "点击页面任意处开启音乐" : "音乐暂时无法播放，点击可重试";
+    feedback.classList.remove("hidden");
   }
   render();
 }
