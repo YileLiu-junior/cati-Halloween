@@ -545,6 +545,28 @@ test(`上传${networkError}显示明确提示，保留预览并允许直接重�
 });
 }
 
+test("超过 10MB 的照片不再拦截，自动压缩后显示预览", async ({ page, request }) => {
+  await resultPage(page, request);
+  await mockFreeFlow(page);
+  await page.locator("#customBtn").click();
+  await page.locator("#useResultRole").click();
+  const base64 = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 600; canvas.height = 600;
+    const context = canvas.getContext("2d");
+    const gradient = context.createLinearGradient(0, 0, 600, 600);
+    gradient.addColorStop(0, "#5b3a2e"); gradient.addColorStop(1, "#c9a36a");
+    context.fillStyle = gradient; context.fillRect(0, 0, 600, 600);
+    return canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
+  });
+  const photo = Buffer.from(base64, "base64");
+  const buffer = Buffer.concat([photo, Buffer.alloc(11 * 1024 * 1024 - photo.length)]);
+  await page.locator("#petPhoto").setInputFiles({ name: "big.jpg", mimeType: "image/jpeg", buffer });
+  await expect(page.locator("#photoPreview")).toBeVisible();
+  await expect(page.locator("#customError")).toBeHidden();
+  await expect(page.locator("#photoHelp")).toContainText("已处理为");
+  await expect(page.locator("#photoHelp")).toContainText("KB");
+});
+
 test("小照片提示换图，重新打开已生成的免费订单可直接读取头像与问卷", async ({ page, request }) => {
   await resultPage(page, request);
   await mockFreeFlow(page);

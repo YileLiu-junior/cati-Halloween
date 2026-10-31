@@ -25,6 +25,8 @@ const TEXT = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 大图在浏览器里压缩后再上传；50MB 只是防止异常文件拖垮手机的兜底。
+const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 export function initCustom(getEntry, openViewer) {
   const dialog = $("customDialog");
@@ -305,7 +307,7 @@ export function initCustom(getEntry, openViewer) {
     $("pickPhotoBtn").textContent = "选择宠物照片";
     $("photoConsent").checked = false;
     $("petPhoto").value = "";
-    $("photoHelp").textContent = "照片短边至少 512px。上传前会压缩照片并移除元信息。";
+    $("photoHelp").textContent = "照片短边至少 512px。大图会自动压缩并移除元信息。";
     show("uploadPhotoBtn"); show("startFreeBtn", false);
   }
   async function loadOutput() {
@@ -684,11 +686,12 @@ export function initCustom(getEntry, openViewer) {
     show("startFreeBtn", false);
     show("photoPreview", false); show("uploadPhotoBtn");
     $("uploadPhotoBtn").textContent = "上传这张照片";
-    $("photoHelp").textContent = "照片短边至少 512px。上传前会压缩照片并移除元信息。";
-    if (file.size > 10 * 1024 * 1024) throw new Error("原图不能超过 10MB，请选择小一点的照片");
-    progress("正在读取照片…");
+    $("photoHelp").textContent = "照片短边至少 512px。大图会自动压缩并移除元信息。";
+    if (file.size > MAX_PHOTO_BYTES) throw new Error("照片超过 50MB，请换一张，或先在相册里裁剪后再试");
+    progress(file.size > 10 * 1024 * 1024 ? "原图较大，正在自动压缩…" : "正在读取照片…");
     const url = URL.createObjectURL(file);
     const image = new Image();
+    image.decoding = "async";
     image.src = url;
     try {
       await image.decode().catch(() => { throw new Error("无法读取这张照片，请换成 JPG、PNG、WebP 或截图"); });
